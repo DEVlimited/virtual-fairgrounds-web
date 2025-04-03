@@ -1,0 +1,680 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<diagram program="umlet" version="15.1">
+  <help_text>// Uncomment the following line to change the fontsize and font:
+fontsize=12
+fontfamily=SansSerif //possible: SansSerif,Serif,Monospaced
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+// Welcome to UMLet!
+//
+// Double-click on elements to add them to the diagram, or to copy them
+// Edit elements by modifying the text in this panel
+// Hold Ctrl to select multiple elements
+// Use Ctrl+mouse to select via lasso
+//
+// Use +/- or Ctrl+mouse wheel to zoom
+// Drag a whole relation at its central square icon
+//
+// Press Ctrl+C to copy the whole diagram to the system clipboard (then just paste it to, eg, Word)
+// Edit the files in the "palettes" directory to create your own element palettes
+//
+// Select "Custom Elements &gt; New..." to create new element types
+//////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// This text will be stored with each diagram;  use it for notes.</help_text>
+  <zoom_level>5</zoom_level>
+  <element>
+    <id>UMLPackage</id>
+    <coordinates>
+      <x>110</x>
+      <y>30</y>
+      <w>615</w>
+      <h>80</h>
+    </coordinates>
+    <panel_attributes>Presentation Layer
+--
+bg=orange
+layer=-1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLGeneric</id>
+    <coordinates>
+      <x>185</x>
+      <y>50</y>
+      <w>100</w>
+      <h>50</h>
+    </coordinates>
+    <panel_attributes>symbol=component
+UIController
+--
+Handles User Interaction
+layer=1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLGeneric</id>
+    <coordinates>
+      <x>290</x>
+      <y>50</y>
+      <w>100</w>
+      <h>50</h>
+    </coordinates>
+    <panel_attributes>symbol=component
+DocumentViewer
+--
+Shows archival documents
+layer=1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLGeneric</id>
+    <coordinates>
+      <x>395</x>
+      <y>50</y>
+      <w>100</w>
+      <h>50</h>
+    </coordinates>
+    <panel_attributes>symbol=component
+TeacherDashboard
+--
+Interface for teachers to create assignments
+layer=1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLGeneric</id>
+    <coordinates>
+      <x>500</x>
+      <y>50</y>
+      <w>115</w>
+      <h>50</h>
+    </coordinates>
+    <panel_attributes>3DModelViewer
+--
+Displays 3D-Historical Fairgrounds
+layer=1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLGeneric</id>
+    <coordinates>
+      <x>620</x>
+      <y>50</y>
+      <w>100</w>
+      <h>50</h>
+    </coordinates>
+    <panel_attributes>symbol=component
+StudentDashboard
+--
+Displays student progress
+layer=1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLPackage</id>
+    <coordinates>
+      <x>110</x>
+      <y>170</y>
+      <w>615</w>
+      <h>80</h>
+    </coordinates>
+    <panel_attributes>Business Logic Layer
+--
+bg=orange
+layer=-1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLGeneric</id>
+    <coordinates>
+      <x>185</x>
+      <y>190</y>
+      <w>115</w>
+      <h>50</h>
+    </coordinates>
+    <panel_attributes>symbol=component
+AssignmentManager
+--
+Manages assignments 
+layer=1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLGeneric</id>
+    <coordinates>
+      <x>315</x>
+      <y>190</y>
+      <w>110</w>
+      <h>50</h>
+    </coordinates>
+    <panel_attributes>symbol=component
+ProgressTracker
+--
+Tracks student progress
+layer=1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLGeneric</id>
+    <coordinates>
+      <x>440</x>
+      <y>190</y>
+      <w>105</w>
+      <h>50</h>
+    </coordinates>
+    <panel_attributes>symbol=component
+3DInteractionHandler
+--
+Handles 3D interactions
+layer=1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLGeneric</id>
+    <coordinates>
+      <x>560</x>
+      <y>190</y>
+      <w>155</w>
+      <h>50</h>
+    </coordinates>
+    <panel_attributes>HistoricalContentManager
+--
+Manages historical documents and oral histories
+layer=1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLPackage</id>
+    <coordinates>
+      <x>110</x>
+      <y>305</y>
+      <w>615</w>
+      <h>80</h>
+    </coordinates>
+    <panel_attributes>Data Access Layer
+--
+bg=orange
+layer=-1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLGeneric</id>
+    <coordinates>
+      <x>185</x>
+      <y>325</y>
+      <w>115</w>
+      <h>50</h>
+    </coordinates>
+    <panel_attributes>symbol=component
+Repository
+--
+Interfaces with the database
+layer=1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLGeneric</id>
+    <coordinates>
+      <x>315</x>
+      <y>325</y>
+      <w>110</w>
+      <h>50</h>
+    </coordinates>
+    <panel_attributes>symbol=component
+ProgressStorage
+--
+Stores frequently accessed data
+layer=1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLGeneric</id>
+    <coordinates>
+      <x>440</x>
+      <y>325</y>
+      <w>130</w>
+      <h>50</h>
+    </coordinates>
+    <panel_attributes>symbol=component
+CDNManager
+--
+Handles 3D model storage and retrieval
+layer=1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLGeneric</id>
+    <coordinates>
+      <x>610</x>
+      <y>325</y>
+      <w>105</w>
+      <h>50</h>
+    </coordinates>
+    <panel_attributes>HistoricalContentManager
+--
+Manages historical documents and oral histories
+layer=1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLPackage</id>
+    <coordinates>
+      <x>110</x>
+      <y>440</y>
+      <w>615</w>
+      <h>80</h>
+    </coordinates>
+    <panel_attributes>Database Layer
+--
+bg=orange
+layer=-1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLGeneric</id>
+    <coordinates>
+      <x>185</x>
+      <y>460</y>
+      <w>140</w>
+      <h>50</h>
+    </coordinates>
+    <panel_attributes>symbol=component
+UserDatabase
+--
+Stores authentication creds and user roles
+layer=1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLGeneric</id>
+    <coordinates>
+      <x>330</x>
+      <y>460</y>
+      <w>120</w>
+      <h>50</h>
+    </coordinates>
+    <panel_attributes>symbol=component
+ProgressTrackerDB
+--
+Stores assignments and submissions
+layer=1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLGeneric</id>
+    <coordinates>
+      <x>455</x>
+      <y>460</y>
+      <w>105</w>
+      <h>50</h>
+    </coordinates>
+    <panel_attributes>symbol=component
+3DModelDB
+--
+Stores 3D assets
+layer=1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLGeneric</id>
+    <coordinates>
+      <x>570</x>
+      <y>460</y>
+      <w>145</w>
+      <h>50</h>
+    </coordinates>
+    <panel_attributes>HistoricalContentDB
+--
+Stores historical documents and oral histories
+layer=1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>225</x>
+      <y>95</y>
+      <w>15</w>
+      <h>105</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;-</panel_attributes>
+    <additional_attributes>10.0;190.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>225</x>
+      <y>95</y>
+      <w>150</w>
+      <h>105</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;-</panel_attributes>
+    <additional_attributes>280.0;190.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>225</x>
+      <y>95</y>
+      <w>270</w>
+      <h>105</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;-</panel_attributes>
+    <additional_attributes>520.0;190.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>480</x>
+      <y>95</y>
+      <w>60</w>
+      <h>105</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;-</panel_attributes>
+    <additional_attributes>10.0;190.0;100.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>525</x>
+      <y>110</y>
+      <w>60</w>
+      <h>15</h>
+    </coordinates>
+    <panel_attributes>render3DScene()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>385</x>
+      <y>145</y>
+      <w>70</w>
+      <h>15</h>
+    </coordinates>
+    <panel_attributes>navigate3DModel()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>240</x>
+      <y>145</y>
+      <w>85</w>
+      <h>10</h>
+    </coordinates>
+    <panel_attributes>trackStudentProgress()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>335</x>
+      <y>95</y>
+      <w>310</w>
+      <h>105</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;-</panel_attributes>
+    <additional_attributes>600.0;190.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>425</x>
+      <y>115</y>
+      <w>65</w>
+      <h>10</h>
+    </coordinates>
+    <panel_attributes>fetchDocument()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>260</x>
+      <y>95</y>
+      <w>190</w>
+      <h>105</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;-</panel_attributes>
+    <additional_attributes>10.0;190.0;360.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>325</x>
+      <y>115</y>
+      <w>75</w>
+      <h>15</h>
+    </coordinates>
+    <panel_attributes>submitAssignment()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>390</x>
+      <y>95</y>
+      <w>300</w>
+      <h>105</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;-</panel_attributes>
+    <additional_attributes>10.0;190.0;580.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>595</x>
+      <y>125</y>
+      <w>80</w>
+      <h>15</h>
+    </coordinates>
+    <panel_attributes>getStudentProgress()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>165</x>
+      <y>110</y>
+      <w>70</w>
+      <h>15</h>
+    </coordinates>
+    <panel_attributes>createAssignment()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>460</x>
+      <y>235</y>
+      <w>15</w>
+      <h>100</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;.</panel_attributes>
+    <additional_attributes>10.0;180.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>275</x>
+      <y>235</y>
+      <w>375</w>
+      <h>100</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;.</panel_attributes>
+    <additional_attributes>10.0;180.0;730.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>245</x>
+      <y>235</y>
+      <w>110</w>
+      <h>100</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;.</panel_attributes>
+    <additional_attributes>10.0;180.0;200.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>235</x>
+      <y>235</y>
+      <w>15</w>
+      <h>100</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;.</panel_attributes>
+    <additional_attributes>10.0;180.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>185</x>
+      <y>250</y>
+      <w>60</w>
+      <h>15</h>
+    </coordinates>
+    <panel_attributes>storeAssignment()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>260</x>
+      <y>260</y>
+      <w>60</w>
+      <h>15</h>
+    </coordinates>
+    <panel_attributes>fetchStudentData()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>420</x>
+      <y>255</y>
+      <w>50</w>
+      <h>15</h>
+    </coordinates>
+    <panel_attributes>load3DModel()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>525</x>
+      <y>265</y>
+      <w>75</w>
+      <h>10</h>
+    </coordinates>
+    <panel_attributes>retrieveHistoricalData()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>245</x>
+      <y>370</y>
+      <w>115</w>
+      <h>100</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;-</panel_attributes>
+    <additional_attributes>210.0;180.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>290</x>
+      <y>370</y>
+      <w>380</w>
+      <h>100</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;-</panel_attributes>
+    <additional_attributes>740.0;180.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>495</x>
+      <y>370</y>
+      <w>15</w>
+      <h>100</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;-</panel_attributes>
+    <additional_attributes>10.0;180.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>235</x>
+      <y>370</y>
+      <w>15</w>
+      <h>100</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;-</panel_attributes>
+    <additional_attributes>10.0;180.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>190</x>
+      <y>385</y>
+      <w>50</w>
+      <h>10</h>
+    </coordinates>
+    <panel_attributes>validateUser()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>250</x>
+      <y>425</y>
+      <w>70</w>
+      <h>15</h>
+    </coordinates>
+    <panel_attributes>saveAssignmentData()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>390</x>
+      <y>410</y>
+      <w>60</w>
+      <h>15</h>
+    </coordinates>
+    <panel_attributes>queryDocuments()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>500</x>
+      <y>390</y>
+      <w>55</w>
+      <h>15</h>
+    </coordinates>
+    <panel_attributes>fetch3DAssets()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+</diagram>
