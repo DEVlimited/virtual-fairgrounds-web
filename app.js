@@ -1,11 +1,11 @@
 const bobby = {
     "name": "bobby",
     "status": "professor",
-    "power-level": 9000
+    "power_level": 9000
 }
 
 const tashfeen = {
     "name": "Ahmad",
     "status": "professor",
-    "power-level": 8999
+    "powerlevel": 8999
 }
