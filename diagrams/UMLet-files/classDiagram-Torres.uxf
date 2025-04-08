@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<diagram program="umlet" version="15.1">
+  <zoom_level>6</zoom_level>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>360</x>
+      <y>228</y>
+      <w>162</w>
+      <h>120</h>
+    </coordinates>
+    <panel_attributes>Teacher
+--
+- TeaID: Int {unique)
+- Password: String
+- School: String
+- Status: String
+- Students: List&lt;Student&gt;
+- CreatedAssignments: List&lt;Assignment&gt;
+--
+- AddGrade(StuID: Int, Grade: Double)
+- Assign()
+- RemoveAssign()
+- EditUser()</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>384</x>
+      <y>72</y>
+      <w>126</w>
+      <h>114</h>
+    </coordinates>
+    <panel_attributes>Admin
+--
+- AdminID: Int {unique)
+- Password: String
+- Status: String
+--
+- ManageUser(ID: Int)
+- ViewUsers()
+- ManageActivity()
+</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>126</x>
+      <y>222</y>
+      <w>144</w>
+      <h>138</h>
+    </coordinates>
+    <panel_attributes>Student
+--
+- StuID: Int {unique}
+- Password: String
+- StuName: String
++ DispName: String
+- Year: Int
+- School: String
+- Status: String
+- Grade: String
++ Assignments: List &lt;Assignment&gt;
+--
++ Submit()
++ EditUser()
+- ViewGrade()</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>642</x>
+      <y>390</y>
+      <w>162</w>
+      <h>114</h>
+    </coordinates>
+    <panel_attributes>3D Models
+--
++ Size: Int
++ Visible: Boolean
++ ModelName: String
++ ModelType: String
++ Location: String
++ Important: Boolean
+--
++ MakeVisible()
++ MakeUnvisible()
++ AssignmentCheck(): List&lt;Assignment&gt;</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>330</x>
+      <y>396</y>
+      <w>216</w>
+      <h>114</h>
+    </coordinates>
+    <panel_attributes>Assignments
+--
++ Title: String
++ Type: String
++ Description: String
++ DueDate: Date
+- AssignedBy: Teacher
+- AssignedTo: List&lt;Student&gt;
+--
+- Grade(Student, Grade): Double
+- CompletionCheck(TeaID, StuId: Int): List&lt;Assignment&gt;</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>432</x>
+      <y>342</y>
+      <w>18</w>
+      <h>66</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;&lt;&lt;&lt;-</panel_attributes>
+    <additional_attributes>10.0;10.0;10.0;90.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>432</x>
+      <y>180</y>
+      <w>18</w>
+      <h>60</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;.</panel_attributes>
+    <additional_attributes>10.0;10.0;10.0;80.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>186</x>
+      <y>198</y>
+      <w>264</w>
+      <h>36</h>
+    </coordinates>
+    <panel_attributes>lt=.</panel_attributes>
+    <additional_attributes>420.0;10.0;10.0;40.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>264</x>
+      <y>288</y>
+      <w>108</w>
+      <h>18</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-&gt;</panel_attributes>
+    <additional_attributes>10.0;10.0;160.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>540</x>
+      <y>450</y>
+      <w>114</w>
+      <h>18</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;&lt;&lt;-</panel_attributes>
+    <additional_attributes>10.0;10.0;170.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>432</x>
+      <y>198</y>
+      <w>300</w>
+      <h>204</h>
+    </coordinates>
+    <panel_attributes>lt=.</panel_attributes>
+    <additional_attributes>10.0;10.0;480.0;30.0;480.0;320.0</additional_attributes>
+  </element>
+</diagram>
