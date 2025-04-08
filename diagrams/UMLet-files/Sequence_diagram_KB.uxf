@@ -1,0 +1,636 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<diagram program="umlet" version="15.1">
+  <zoom_level>6</zoom_level>
+  <element>
+    <id>UMLActor</id>
+    <coordinates>
+      <x>216</x>
+      <y>390</y>
+      <w>60</w>
+      <h>66</h>
+    </coordinates>
+    <panel_attributes>Administrator</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLActor</id>
+    <coordinates>
+      <x>228</x>
+      <y>222</y>
+      <w>36</w>
+      <h>66</h>
+    </coordinates>
+    <panel_attributes>Student</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLActor</id>
+    <coordinates>
+      <x>222</x>
+      <y>306</y>
+      <w>48</w>
+      <h>66</h>
+    </coordinates>
+    <panel_attributes>Teacher</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>426</x>
+      <y>270</y>
+      <w>54</w>
+      <h>24</h>
+    </coordinates>
+    <panel_attributes>UIController
+bg=blue
+layer=2
+group=group-3</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>426</x>
+      <y>390</y>
+      <w>66</w>
+      <h>24</h>
+    </coordinates>
+    <panel_attributes>3DModelViewer
+bg=blue
+layer=2
+group=group-3</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>426</x>
+      <y>330</y>
+      <w>78</w>
+      <h>24</h>
+    </coordinates>
+    <panel_attributes>StudentDashboard
+bg=blue
+layer=2
+group=group-3</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>426</x>
+      <y>300</y>
+      <w>72</w>
+      <h>24</h>
+    </coordinates>
+    <panel_attributes>DocumentViewer
+bg=blue
+layer=2
+group=group-3</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLPackage</id>
+    <coordinates>
+      <x>414</x>
+      <y>252</y>
+      <w>102</w>
+      <h>174</h>
+    </coordinates>
+    <panel_attributes>Presentation Layer
+--
+bg=orange
+group=group-3</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>426</x>
+      <y>360</y>
+      <w>78</w>
+      <h>24</h>
+    </coordinates>
+    <panel_attributes>TeacherDashboard
+bg=blue
+layer=2
+group=group-5</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>624</x>
+      <y>294</y>
+      <w>84</w>
+      <h>24</h>
+    </coordinates>
+    <panel_attributes>AssignmentManager
+bg=blue
+layer=2
+group=group-4</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>624</x>
+      <y>324</y>
+      <w>108</w>
+      <h>24</h>
+    </coordinates>
+    <panel_attributes>HistoricalContentManager
+bg=blue
+layer=2
+group=group-4</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>624</x>
+      <y>354</y>
+      <w>90</w>
+      <h>24</h>
+    </coordinates>
+    <panel_attributes>3DInteractionHandler
+bg=blue
+layer=2
+group=group-4</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>624</x>
+      <y>384</y>
+      <w>84</w>
+      <h>24</h>
+    </coordinates>
+    <panel_attributes>ProgressTracker
+bg=blue
+layer=2
+group=group-4</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLPackage</id>
+    <coordinates>
+      <x>612</x>
+      <y>276</y>
+      <w>132</w>
+      <h>144</h>
+    </coordinates>
+    <panel_attributes>Business Logic Layer
+--
+bg=orange
+group=group-4</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>936</x>
+      <y>300</y>
+      <w>84</w>
+      <h>24</h>
+    </coordinates>
+    <panel_attributes>DatabaseHandler
+bg=blue
+layer=2
+group=group-1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>936</x>
+      <y>330</y>
+      <w>84</w>
+      <h>24</h>
+    </coordinates>
+    <panel_attributes>Repository
+bg=blue
+layer=2
+group=group-1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>936</x>
+      <y>360</y>
+      <w>84</w>
+      <h>24</h>
+    </coordinates>
+    <panel_attributes>CDNManager
+bg=blue
+layer=2
+group=group-1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>936</x>
+      <y>390</y>
+      <w>84</w>
+      <h>24</h>
+    </coordinates>
+    <panel_attributes>ProgressStorage
+bg=blue
+layer=2
+group=group-1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLPackage</id>
+    <coordinates>
+      <x>924</x>
+      <y>282</y>
+      <w>108</w>
+      <h>144</h>
+    </coordinates>
+    <panel_attributes>Data Access Layer
+--
+bg=orange
+group=group-1</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>1182</x>
+      <y>306</y>
+      <w>84</w>
+      <h>24</h>
+    </coordinates>
+    <panel_attributes>UserDatabase
+bg=blue
+layer=2
+group=group-0</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>1182</x>
+      <y>336</y>
+      <w>84</w>
+      <h>24</h>
+    </coordinates>
+    <panel_attributes>3DModelDB
+bg=blue
+layer=2
+group=group-0</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>1182</x>
+      <y>366</y>
+      <w>84</w>
+      <h>24</h>
+    </coordinates>
+    <panel_attributes>HistoricalContentDB
+bg=blue
+layer=2
+group=group-0</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>1182</x>
+      <y>396</y>
+      <w>84</w>
+      <h>24</h>
+    </coordinates>
+    <panel_attributes>ProgressTrackingDB
+bg=blue
+layer=2
+group=group-0</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLPackage</id>
+    <coordinates>
+      <x>1176</x>
+      <y>282</y>
+      <w>108</w>
+      <h>144</h>
+    </coordinates>
+    <panel_attributes>Database Layer
+--
+bg=orange
+group=group-0</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>582</x>
+      <y>234</y>
+      <w>78</w>
+      <h>24</h>
+    </coordinates>
+    <panel_attributes>
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>0</x>
+      <y>534</y>
+      <w>90</w>
+      <h>24</h>
+    </coordinates>
+    <panel_attributes>
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>258</x>
+      <y>240</y>
+      <w>180</w>
+      <h>48</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;-</panel_attributes>
+    <additional_attributes>280.0;60.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>312</x>
+      <y>240</y>
+      <w>78</w>
+      <h>18</h>
+    </coordinates>
+    <panel_attributes>
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>474</x>
+      <y>282</y>
+      <w>162</w>
+      <h>90</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;-</panel_attributes>
+    <additional_attributes>250.0;130.0;120.0;80.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>558</x>
+      <y>324</y>
+      <w>60</w>
+      <h>18</h>
+    </coordinates>
+    <panel_attributes>loadModel()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>708</x>
+      <y>360</y>
+      <w>240</w>
+      <h>24</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;.</panel_attributes>
+    <additional_attributes>380.0;10.0;10.0;20.0</additional_attributes>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>744</x>
+      <y>354</y>
+      <w>72</w>
+      <h>18</h>
+    </coordinates>
+    <panel_attributes>fetch3DModel()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>312</x>
+      <y>222</y>
+      <w>90</w>
+      <h>36</h>
+    </coordinates>
+    <panel_attributes>submitAssignment()
+accessDocument()
+request3DModel()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>474</x>
+      <y>282</y>
+      <w>162</w>
+      <h>30</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;-</panel_attributes>
+    <additional_attributes>250.0;30.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>516</x>
+      <y>276</y>
+      <w>90</w>
+      <h>12</h>
+    </coordinates>
+    <panel_attributes>processAssignment()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>702</x>
+      <y>306</y>
+      <w>246</w>
+      <h>42</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;.</panel_attributes>
+    <additional_attributes>390.0;50.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>744</x>
+      <y>300</y>
+      <w>84</w>
+      <h>12</h>
+    </coordinates>
+    <panel_attributes>storeAssignment()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>258</x>
+      <y>270</y>
+      <w>180</w>
+      <h>72</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;-</panel_attributes>
+    <additional_attributes>280.0;10.0;10.0;100.0</additional_attributes>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>282</x>
+      <y>288</y>
+      <w>84</w>
+      <h>12</h>
+    </coordinates>
+    <panel_attributes>
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>282</x>
+      <y>276</y>
+      <w>96</w>
+      <h>24</h>
+    </coordinates>
+    <panel_attributes>viewStudentProgress()
+createAssignment()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>474</x>
+      <y>282</y>
+      <w>162</w>
+      <h>120</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;-</panel_attributes>
+    <additional_attributes>250.0;180.0;100.0;120.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1014</x>
+      <y>300</y>
+      <w>180</w>
+      <h>84</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;.</panel_attributes>
+    <additional_attributes>280.0;120.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>534</x>
+      <y>378</y>
+      <w>72</w>
+      <h>18</h>
+    </coordinates>
+    <panel_attributes>fetchProgress()
+
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>702</x>
+      <y>330</y>
+      <w>246</w>
+      <h>84</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;.</panel_attributes>
+    <additional_attributes>390.0;10.0;10.0;120.0</additional_attributes>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>750</x>
+      <y>384</y>
+      <w>78</w>
+      <h>18</h>
+    </coordinates>
+    <panel_attributes>retrieveProgress()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>474</x>
+      <y>282</y>
+      <w>162</w>
+      <h>60</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;-</panel_attributes>
+    <additional_attributes>250.0;80.0;110.0;50.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>546</x>
+      <y>300</y>
+      <w>78</w>
+      <h>12</h>
+    </coordinates>
+    <panel_attributes>fetchDocument()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>726</x>
+      <y>300</y>
+      <w>222</w>
+      <h>54</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;.</panel_attributes>
+    <additional_attributes>350.0;10.0;10.0;70.0</additional_attributes>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>1062</x>
+      <y>312</y>
+      <w>84</w>
+      <h>12</h>
+    </coordinates>
+    <panel_attributes>retrieveDocument()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Text</id>
+    <coordinates>
+      <x>846</x>
+      <y>300</y>
+      <w>78</w>
+      <h>12</h>
+    </coordinates>
+    <panel_attributes>	fetchDocument()
+style=wordwrap</panel_attributes>
+    <additional_attributes/>
+  </element>
+</diagram>
