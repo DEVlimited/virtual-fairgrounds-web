@@ -95,7 +95,7 @@
 
 			function loadAsset( asset ) {
 
-				loader.load( '../models/fbx/' + asset + '.fbx', function ( group ) {
+				loader.load( '../public/models/fbx/' + asset + '.fbx', function ( group ) {
 
 					if ( object ) {
 
