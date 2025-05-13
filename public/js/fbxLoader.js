@@ -14,11 +14,11 @@
 			const clock = new THREE.Clock();
 
 			const params = {
-				asset: 'warehouse'
+				asset: 'fairgrounds-model'
 			};
 
 			const assets = [
-				'warehouse'
+				'fairgrounds-model'
 			];
 
 
@@ -29,12 +29,12 @@
 				const container = document.createElement( 'div' );
 				document.body.appendChild( container );
 
-				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 2000 );
-				camera.position.set( 100, 200, 300 );
+				camera = new THREE.PerspectiveCamera( 90, window.innerWidth / window.innerHeight, 0.1, 40000 );
+				camera.position.set( 6000, 5000, 5000 );
 
 				scene = new THREE.Scene();
 				scene.background = new THREE.Color( 0xa0a0a0 );
-				scene.fog = new THREE.Fog( 0xa0a0a0, 200, 1000 );
+				// scene.fog = new THREE.Fog( 0xa0a0a0, 10, 3000 );
 
 				const hemiLight = new THREE.HemisphereLight( 0xffffff, 0x444444, 5 );
 				hemiLight.position.set( 0, 200, 0 );
@@ -164,6 +164,7 @@
 
 					} );
 
+					object.rotation.x = -Math.PI / 2;
 					scene.add( object );
 
 				} );
@@ -193,4 +194,20 @@
 
 			}
 
+			window.addEventListener('keydown', function(event) {
+				switch (event.code) {
+					case 'KeyW':
+						camera.position.z =+ 5;
+						break;
+					case 'KeyA':
+						camera.position.x =+ 5;
+						break;
+					case 'KeyS':
+						camera.position.z =- 5;
+						break;
+					case 'KeyD':
+						camera.position.x =- 5;
+						break;
+				}
+			});
 		
