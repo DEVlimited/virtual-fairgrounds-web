@@ -16,7 +16,7 @@ function main() {
 	const fov = 55;
 	const aspect = 2; // the canvas default
 	const near = 0.1;
-	const far = 50;
+	const far = 80;
 	const camera = new THREE.PerspectiveCamera( fov, aspect, near, far );
 	camera.position.set( -53.35, 31.54, 4.64);
 
@@ -66,6 +66,26 @@ function main() {
 		}
 	}
 
+    class FogGUIHelper {
+        constructor(fog) {
+            this.fog = fog;
+        }
+        get near() {
+            return this.fog.near;
+        }
+        set near(v) {
+            this.fog.near = v;
+            this.fog.far = Math.max(this.fog.far, v);
+        }
+        get far() {
+            return this.fog.far;
+        }
+        set far(v) {
+            this.fog.far = v;
+            this.fog.near = Math.min(this.fog.near, v);
+        }
+    }
+
     const gui = new GUI();
     gui.add(camera, 'fov', 1, 180);
     const minMaxGUIHelper = new MinMaxGUIHelper(camera, 'near', 'far', 0.1);
@@ -82,22 +102,12 @@ function main() {
         cameraPositionElement.textContent = `Camera Position: X - ${x.toFixed(2)}, Y - ${y.toFixed(2)}, Z - ${z.toFixed(2)}`;
     }
 
-    const xc = camera.position.x;
-    const yc = camera.position.y;
-    const zc = camera.position.z;
-    console.log(`Camera Position: X - ${xc.toFixed(2)}, Y - ${yc.toFixed(2)}, Z - ${zc.toFixed(2)}`);
-
 	const controls = new OrbitControls( camera, view1Elem );
 	controls.target.set( -53.35, 31.54, 4.64);
     controls.minDistance = 2;
     controls.maxDistance = 8;
 	controls.update();
 
-    const x = camera.position.x;
-    const y = camera.position.y;
-    const z = camera.position.z;
-    console.log(`Camera Position: X - ${x.toFixed(2)}, Y - ${y.toFixed(2)}, Z - ${z.toFixed(2)}`);
-    
     const camera2 = new THREE.PerspectiveCamera(
         60,  // fov
         2,   // aspect
@@ -114,6 +124,7 @@ function main() {
 	const scene = new THREE.Scene();
 	scene.background = new THREE.Color( 'black' );
     scene.add(cameraHelper);
+    
 
     //This code basically sets up the two perspectives for the canvas by splitting the view in 2
     //The documentation in the cameras section goes into more indepth detail
@@ -172,6 +183,17 @@ function main() {
 		scene.add( light );
 
 	}
+
+    {
+        const near = 0.1;
+        const far = 80;
+        const fogColor = 0x000040;
+        scene.fog = new THREE.Fog(fogColor, near, far);
+
+        const fogGUIHelper = new FogGUIHelper(scene.fog);
+        gui.add(fogGUIHelper, 'near', near, far * 4).listen();
+        gui.add(fogGUIHelper, 'far', near, far * 4).listen();
+    }
 
 	{
 
@@ -233,12 +255,12 @@ function main() {
             // adjust the camera for this aspect
             camera.aspect = aspect;
             camera.updateProjectionMatrix();
-            camera.lookAt(-41.41, 35, 3.46);
+            // camera.lookAt(-41.41, 35, 3.46);
         
             // don't draw the camera helper in the original view
             cameraHelper.visible = false;
         
-            scene.background.set(0x000000);
+            scene.background.set(0x000040);
         
             // render
             renderer.render(scene, camera);
@@ -254,7 +276,7 @@ function main() {
         
             // draw the camera helper in the 2nd view
             cameraHelper.visible = true;
-        
+
             scene.background.set(0x000040);
         
             renderer.render(scene, camera2);
