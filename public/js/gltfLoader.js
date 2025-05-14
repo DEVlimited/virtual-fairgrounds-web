@@ -80,7 +80,7 @@ function main() {
 		const planeSize = 40;
 
 		const loader = new THREE.TextureLoader();
-		const texture = loader.load( '../models/gltf2/Image.png' );
+		const texture = loader.load( '../models/gltfOld/Image.png' );
 		texture.wrapS = THREE.RepeatWrapping;
 		texture.wrapT = THREE.RepeatWrapping;
 		texture.magFilter = THREE.NearestFilter;
@@ -123,6 +123,20 @@ function main() {
 
 	}
 
+	//Got this scenegraph dump code from the threejs documentation, super helperful
+	//and it looks great in the console
+	function dumpObject( obj, lines = [], isLast = true, prefix = '' ) {
+		const localPrefix = isLast ? '└─' : '├─';
+		lines.push( `${prefix}${prefix ? localPrefix : ''}${obj.name || '*no-name*'} [${obj.type}]` );
+		const newPrefix = prefix + ( isLast ? '  ' : '│ ' );
+		const lastNdx = obj.children.length - 1;
+		obj.children.forEach( ( child, ndx ) => {
+			const isLast = ndx === lastNdx;
+			dumpObject( child, lines, isLast, newPrefix );
+		} );
+		return lines;
+	}
+
 	function frameArea( sizeToFitOnScreen, boxSize, boxCenter, camera ) {
 
 		const halfSizeToFitOnScreen = sizeToFitOnScreen * 0.5;
@@ -154,12 +168,13 @@ function main() {
 	{
 
 		const gltfLoader = new GLTFLoader();
-		gltfLoader.load( '../models/gltf2/fairgrounds.gltf', ( gltf ) => {
+		gltfLoader.load( '../models/gltfOld/fairgrounds.gltf', ( gltf ) => {
 
 			const root = gltf.scene;
             //If need to rotate model use this
             // root.rotation.x = Math.PI / 2;
 			scene.add( root );
+			console.log(dumpObject(root).join('\n'));
 
 			// compute the box that contains all the stuff
 			// from root and below
@@ -237,20 +252,3 @@ function main() {
 }
 
 main();
-
-// window.addEventListener('keydown', function(event) {
-//     switch (event.code) {
-//         case 'KeyW':
-//             camera.position.z =+ 5;
-//             break;
-//         case 'KeyA':
-//             camera.position.x =+ 5;
-//             break;
-//         case 'KeyS':
-//             camera.position.z =- 5;
-//             break;
-//         case 'KeyD':ddddddd
-//             camera.position.x =- 100;
-//             break;
-//     }
-// });
