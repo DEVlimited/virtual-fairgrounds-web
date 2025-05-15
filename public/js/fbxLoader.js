@@ -1,4 +1,7 @@
-			import * as THREE from 'three';
+            //This was straight lifted from the following
+            //Threejs template: https://threejs.org/examples/?q=fbx#webgl_loader_fbx
+            //warehouse model: https://www.fab.com/listings/934565e3-4c9f-40b3-8d17-f79f5e144a99
+            import * as THREE from 'three';
 
 			import Stats from 'three/addons/libs/stats.module.js';
 

@@ -80,7 +80,11 @@ function main() {
 		const planeSize = 40;
 
 		const loader = new THREE.TextureLoader();
+<<<<<<< HEAD
 		const texture = loader.load( '../models/gltfOld/Image.png' );
+=======
+		const texture = loader.load( '../models/gltf/Image.png' );
+>>>>>>> main
 		texture.wrapS = THREE.RepeatWrapping;
 		texture.wrapT = THREE.RepeatWrapping;
 		texture.magFilter = THREE.NearestFilter;
@@ -168,7 +172,11 @@ function main() {
 	{
 
 		const gltfLoader = new GLTFLoader();
+<<<<<<< HEAD
 		gltfLoader.load( '../models/gltfOld/fairgrounds.gltf', ( gltf ) => {
+=======
+		gltfLoader.load( '../models/gltf/fairgrounds.gltf', ( gltf ) => {
+>>>>>>> main
 
 			const root = gltf.scene;
             //If need to rotate model use this
