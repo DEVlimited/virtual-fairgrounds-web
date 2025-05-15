@@ -15,6 +15,19 @@ function main() {
     const view1Elem = document.querySelector('#view1');
     const view2Elem = document.querySelector('#view2');
 
+    const loadingDiv = document.createElement('div');
+    loadingDiv.style.position = 'absolute';
+    loadingDiv.style.top = '50%';
+    loadingDiv.style.left = '50%';
+    loadingDiv.style.transform = 'translate(-50%, -50%)';
+    loadingDiv.style.padding = '20px';
+    loadingDiv.style.background = 'rgba(0,0,0,0.7)';
+    loadingDiv.style.color = 'white';
+    loadingDiv.style.borderRadius = '5px';
+    loadingDiv.style.zIndex = '1000';
+    loadingDiv.textContent = 'Loading model (0%)...';
+    document.body.appendChild(loadingDiv);
+
 	const fov = 55;
 	const aspect = 2; // the canvas default
 	const near = 0.1;
@@ -216,6 +229,7 @@ function main() {
 		const gltfLoader = new GLTFLoader();
 		gltfLoader.load( baseURL + 'fairgrounds.gltf', ( gltf ) => {
 
+            loadingDiv.style.display = 'none';
 			const root = gltf.scene;
             //If need to rotate model use this
             // root.rotation.x = Math.PI / 2;
@@ -223,7 +237,20 @@ function main() {
 
 			controls.update();
 
-		} );
+		},
+        (xhr) => {
+            // Progress callback
+            if (xhr.lengthComputable) {
+                const percentComplete = Math.round((xhr.loaded / xhr.total) * 100);
+                loadingDiv.textContent = `Loading model (${percentComplete}%)...`;
+            }
+        },
+        (error) => {
+            // Error callback
+            loadingDiv.textContent = 'Error loading model. Check console for details.';
+            loadingDiv.style.background = 'rgba(255,0,0,0.7)';
+            console.error('Error loading model:', error);
+        } );
 
 	}
 

@@ -12,6 +12,19 @@ function main() {
 	const renderer = new THREE.WebGLRenderer( { antialias: true, canvas } );
 	const baseURL = 'https://storage.googleapis.com/fairgrounds-model/';
 
+	const loadingDiv = document.createElement('div');
+	loadingDiv.style.position = 'absolute';
+	loadingDiv.style.top = '50%';
+	loadingDiv.style.left = '50%';
+	loadingDiv.style.transform = 'translate(-50%, -50%)';
+	loadingDiv.style.padding = '20px';
+	loadingDiv.style.background = 'rgba(0,0,0,0.7)';
+	loadingDiv.style.color = 'white';
+	loadingDiv.style.borderRadius = '5px';
+	loadingDiv.style.zIndex = '1000';
+	loadingDiv.textContent = 'Loading model (0%)...';
+	document.body.appendChild(loadingDiv);
+
 	const fov = 45;
 	const aspect = 2; // the canvas default
 	const near = 0.1;
@@ -81,7 +94,7 @@ function main() {
 		const planeSize = 40;
 
 		const loader = new THREE.TextureLoader();
-		const texture = loader.load( baseURl + 'Image.png' );
+		const texture = loader.load( baseURL + 'Image.png' );
 		texture.wrapS = THREE.RepeatWrapping;
 		texture.wrapT = THREE.RepeatWrapping;
 		texture.magFilter = THREE.NearestFilter;
@@ -171,6 +184,7 @@ function main() {
 		const gltfLoader = new GLTFLoader();
 		gltfLoader.load( baseURL + 'fairgrounds.gltf', ( gltf ) => {
 
+			loadingDiv.style.display = 'none';
 			const root = gltf.scene;
             //If need to rotate model use this
             // root.rotation.x = Math.PI / 2;
@@ -191,6 +205,19 @@ function main() {
 			controls.target.copy( boxCenter );
 			controls.update();
 
+		},
+		(xhr) => {
+			// Progress callback
+			if (xhr.lengthComputable) {
+				const percentComplete = Math.round((xhr.loaded / xhr.total) * 100);
+				loadingDiv.textContent = `Loading model (${percentComplete}%)...`;
+			}
+		},
+		(error) => {
+			// Error callback
+			loadingDiv.textContent = 'Error loading model. Check console for details.';
+			loadingDiv.style.background = 'rgba(255,0,0,0.7)';
+			console.error('Error loading model:', error);
 		} );
 
 	}
