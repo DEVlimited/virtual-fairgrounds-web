@@ -10,6 +10,7 @@ function main() {
 
 	const canvas = document.querySelector( '#c' );
 	const renderer = new THREE.WebGLRenderer( { antialias: true, canvas } );
+	const baseURL = 'https://storage.googleapis.com/fairgrounds-model/';
 
 	const fov = 45;
 	const aspect = 2; // the canvas default
@@ -80,7 +81,7 @@ function main() {
 		const planeSize = 40;
 
 		const loader = new THREE.TextureLoader();
-		const texture = loader.load( '../models/gltf/Image.png' );
+		const texture = loader.load( baseURl + 'Image.png' );
 		texture.wrapS = THREE.RepeatWrapping;
 		texture.wrapT = THREE.RepeatWrapping;
 		texture.magFilter = THREE.NearestFilter;
@@ -168,7 +169,7 @@ function main() {
 	{
 
 		const gltfLoader = new GLTFLoader();
-		gltfLoader.load( '../models/gltf/fairgrounds.gltf', ( gltf ) => {
+		gltfLoader.load( baseURL + 'fairgrounds.gltf', ( gltf ) => {
 
 			const root = gltf.scene;
             //If need to rotate model use this
