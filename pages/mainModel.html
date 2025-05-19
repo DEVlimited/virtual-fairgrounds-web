@@ -3,9 +3,22 @@
 <head>
   <title>fogTest</title>
   <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-  <link rel="stylesheet" type="text/css" href="base.css">
+    <style>
+        html, body 
+        {
+            margin: 0;
+            height: 100%;
+        }
+        #c 
+        {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+    </style>
 </head>
 <body>
+  <canvas id="c"></canvas>
   <script type="importmap">
     {
         "imports": {
@@ -14,7 +27,7 @@
         }
     }
   </script>
-  <script src="../public/js/fogTest.js" type="module">
+  <script src="../public/js/mainModel.js" type="module">
   </script>
 </body>
 </html>
