@@ -294,6 +294,11 @@ function main() {
     const gui = new GUI();
     
     // Camera controls
+    var cameraResetButton = {
+        reset_position: function() {
+            camera.position.set(-53.35, 32, 4.64);
+        }
+    };
     const cameraFolder = gui.addFolder('Camera');
     cameraFolder.add(camera, 'fov', 1, 180).onChange(() => {
         camera.updateProjectionMatrix();
@@ -301,6 +306,7 @@ function main() {
     const minMaxGUIHelper = new MinMaxGUIHelper(camera, 'near', 'far', 0.1);
     cameraFolder.add(minMaxGUIHelper, 'min', 0.1, 50, 0.1).name('near');
     cameraFolder.add(minMaxGUIHelper, 'max', 0.1, 650, 0.1).name('far');
+    cameraFolder.add(cameraResetButton, 'reset_position');
     cameraFolder.open();
 
     const controls = new PointerLockControls(camera, canvas);
@@ -539,8 +545,8 @@ function main() {
             direction.x = Number( moveRight ) - Number( moveLeft );
             direction.normalize();
 
-            if ( moveForward || moveBackward ) velocity.z -= direction.z * 400.0 * delta;
-            if ( moveLeft || moveRight ) velocity.x -= direction.x * 400.0 * delta;
+            if ( moveForward || moveBackward ) velocity.z -= direction.z * 100.0 * delta;
+            if ( moveLeft || moveRight ) velocity.x -= direction.x * 100.0 * delta;
 
             controls.moveRight( - velocity.x * delta );
             controls.moveForward( - velocity.z * delta );
