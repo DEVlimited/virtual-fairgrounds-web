@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
@@ -267,9 +266,6 @@ function main() {
     const velocity = new THREE.Vector3();
     const direction = new THREE.Vector3();
 
-    const view1Elem = document.querySelector('#view1');
-    const view2Elem = document.querySelector('#view2');
-
     const loadingDiv = document.createElement('div');
     loadingDiv.style.position = 'absolute';
     loadingDiv.style.top = '50%';
@@ -283,18 +279,17 @@ function main() {
     loadingDiv.textContent = 'Loading model (0%)...';
     document.body.appendChild(loadingDiv);
 
+    const blocker = document.getElementById( 'blocker' );
+    const instructions = document.getElementById( 'instructions' );
+
     const fov = 55;
     const aspect = 2; // the canvas default
-    const near = 0.9;
+    const near = 0.1;
     const far = 650;
     const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
     camera.position.set(-53.35, 32, 4.64);
 
-    // Create a camera helper for the split view
-    const cameraHelper = new THREE.CameraHelper(camera);
-
-    const blocker = document.getElementById( 'blocker' );
-    const instructions = document.getElementById( 'instructions' );
+	const scene = new THREE.Scene();
 
     const gui = new GUI();
     
@@ -308,36 +303,7 @@ function main() {
     cameraFolder.add(minMaxGUIHelper, 'max', 0.1, 650, 0.1).name('far');
     cameraFolder.open();
 
-    // Camera position display
-    const cameraPositionElement = document.getElementById('camera-position');
-    function updateCameraPosition() {
-        const x = camera.position.x;
-        const y = camera.position.y;
-        const z = camera.position.z;
-        if (cameraPositionElement) {
-            cameraPositionElement.textContent = `Camera Position: X - ${x.toFixed(2)}, Y - ${y.toFixed(2)}, Z - ${z.toFixed(2)}`;
-        }
-    }
-
-    const controls = new PointerLockControls(camera, view1Elem);
-
-    // Second camera for the overview
-    const camera2 = new THREE.PerspectiveCamera(
-        60,  // fov
-        2,   // aspect
-        0.1, // near
-        1000, // far
-    );
-    camera2.position.set(0, 100, 100);
-    camera2.lookAt(0, 0, 0);
-    
-    const controls2 = new OrbitControls(camera2, view2Elem);
-    controls2.target.set(0, 5, 0);
-    controls2.update();
-
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color('black');
-    scene.add(cameraHelper);
+    const controls = new PointerLockControls(camera, canvas);
 
     instructions.addEventListener( 'click', function () {
         controls.lock();
@@ -355,6 +321,7 @@ function main() {
 
     scene.add( controls.object );
 
+    //This is the movement event function for the keys when they go up and down
     const onKeyDown = function ( event ) {
 
         switch ( event.code ) {
@@ -380,7 +347,7 @@ function main() {
                     break;
         }
     };
-    const onKeyUp = function ( event ) {
+        const onKeyUp = function ( event ) {
 
         switch ( event.code ) {
 
@@ -415,28 +382,19 @@ function main() {
         s.uniforms.fogTime = {value: 0.0};
     };
 
-    // Function to set scissor for split view
-    function setScissorForElement(elem) {
-        const canvasRect = canvas.getBoundingClientRect();
-        const elemRect = elem.getBoundingClientRect();
-        
-        // compute a canvas relative rectangle
-        const right = Math.min(elemRect.right, canvasRect.right) - canvasRect.left;
-        const left = Math.max(0, elemRect.left - canvasRect.left);
-        const bottom = Math.min(elemRect.bottom, canvasRect.bottom) - canvasRect.top;
-        const top = Math.max(0, elemRect.top - canvasRect.top);
-        
-        const width = Math.min(canvasRect.width, right - left);
-        const height = Math.min(canvasRect.height, bottom - top);
-        
-        // setup the scissor to only render to that part of the canvas
-        const positiveYUpBottom = canvasRect.height - bottom;
-        renderer.setScissor(left, positiveYUpBottom, width, height);
-        renderer.setViewport(left, positiveYUpBottom, width, height);
-        
-        // return the aspect
-        return width / height;
-    }
+	//Got this scenegraph dump code from the threejs documentation, super helperful
+	//and it looks great in the console
+	function dumpObject( obj, lines = [], isLast = true, prefix = '' ) {
+		const localPrefix = isLast ? '└─' : '├─';
+		lines.push( `${prefix}${prefix ? localPrefix : ''}${obj.name || '*no-name*'} [${obj.type}]` );
+		const newPrefix = prefix + ( isLast ? '  ' : '│ ' );
+		const lastNdx = obj.children.length - 1;
+		obj.children.forEach( ( child, ndx ) => {
+			const isLast = ndx === lastNdx;
+			dumpObject( child, lines, isLast, newPrefix );
+		} );
+		return lines;
+	}
 
     // Add hemisphere light
     {
@@ -498,6 +456,8 @@ function main() {
             const root = gltf.scene;
             
             // Apply shader modification to all meshes in the scene
+			// Also wanted to note this was done by ChatGPT as well. It was part of the problem
+			// to some degree but not as major, this just helps load the shaders properly
             root.traverse((child) => {
                 if (child.isMesh && child.material) {
                     if (Array.isArray(child.material)) {
@@ -511,6 +471,8 @@ function main() {
             });
             
             scene.add(root);
+			console.log(dumpObject(root).join('\n'));
+			
             controls.update();
 
             blocker.style.display = '';
@@ -564,8 +526,6 @@ function main() {
             s.uniforms.fogTime.value = totalTime;
         }
 
-        resizeRendererToDisplaySize(renderer);
-
         const pointLockTime = performance.now();
 
         if ( controls.isLocked === true ){
@@ -588,41 +548,17 @@ function main() {
         }
 
         prevTime = pointLockTime;
-    
-        // Turn on the scissor
-        renderer.setScissorTest(true);
-    
-        // Render the original view
-        {
-            const aspect = setScissorForElement(view1Elem);
-            blocker.style.width = aspect;
-        
-            // Adjust the camera for this aspect
-            camera.aspect = aspect;
-            camera.updateProjectionMatrix();
-        
-            // Don't draw the camera helper in the original view
-            cameraHelper.visible = false;
-        
-            // Render
-            renderer.render(scene, camera);
-        }
-    
-        // Render from the 2nd camera
-        {
-            const aspect = setScissorForElement(view2Elem);
-        
-            // Adjust the camera for this aspect
-            camera2.aspect = aspect;
-            camera2.updateProjectionMatrix();
-        
-            // Draw the camera helper in the 2nd view
-            cameraHelper.visible = true;
-        
-            renderer.render(scene, camera2);
-        }
 
-        updateCameraPosition();
+		if(resizeRendererToDisplaySize(renderer) ) {
+			// Adjust the camera for this aspect
+			const canvas = renderer.domElement;
+			camera.aspect = canvas.clientWidth / canvas.clientHeight;
+			camera.updateProjectionMatrix();
+		}
+	
+		// Render
+		renderer.render(scene, camera);
+
         requestAnimationFrame(render);
     }
 
