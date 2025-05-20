@@ -1,19 +1,286 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="utf-8">
-    <title>Virtual Fairgrounds</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Fairgrounds - Preserving Oklahoma City's Historic Fairgrounds District</title>
     <style>
-      body { 
-        margin: 0;
-        color: aliceblue;
-      }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #2a3579;
+            background: linear-gradient(135deg, #417cbd 0%, #2a3579 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 2rem 0;
+            text-align: center;
+            border-radius: 15px;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(42, 53, 121, 0.37);
+        }
+
+        .logo-area {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 2rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .partner-logo {
+            background: #ffffff;
+            padding: 1rem;
+            border-radius: 10px;
+            border: 2px solid #417cbd;
+            transition: transform 0.3s ease;
+        }
+
+        .partner-logo:hover {
+            transform: translateY(-5px);
+            background: #417cbd;
+        }
+
+        .partner-logo:hover a {
+            color: #ffffff;
+        }
+
+        .partner-logo a {
+            color: #2a3579;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        h1 {
+            color: #2a3579;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: 300;
+        }
+
+        .subtitle {
+            color: #417cbd;
+            font-size: 1.2rem;
+            font-style: italic;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .content-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(42, 53, 121, 0.37);
+        }
+
+        .description-section h2 {
+            color: #2a3579;
+            margin-bottom: 1rem;
+            font-size: 1.8rem;
+        }
+
+        .description-section p {
+            margin-bottom: 1rem;
+            color: #2a3579;
+            text-align: justify;
+        }
+
+        .info-tabs {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(42, 53, 121, 0.37);
+            overflow: hidden;
+        }
+
+        .tab-buttons {
+            display: flex;
+            background: #417cbd;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 1rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            color: #ffffff;
+            transition: all 0.3s ease;
+        }
+
+        .tab-button.active {
+            background: #ffffff;
+            color: #2a3579;
+            transform: translateY(-2px);
+        }
+
+        .tab-content {
+            padding: 2rem;
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .tab-content h3 {
+            color: #2a3579;
+            margin-bottom: 1rem;
+        }
+
+        .entry-section {
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        .enter-button {
+            background: linear-gradient(45deg, #417cbd, #2a3579);
+            color: #ffffff;
+            padding: 1.5rem 3rem;
+            font-size: 1.3rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(42, 53, 121, 0.3);
+        }
+
+        .enter-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(42, 53, 121, 0.4);
+        }
+
+        .instructions-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 2rem;
+            border-radius: 15px;
+            margin: 2rem 0;
+            box-shadow: 0 8px 32px rgba(42, 53, 121, 0.37);
+        }
+
+        .instructions-section h2 {
+            color: #2a3579;
+            margin-bottom: 1rem;
+        }
+
+        .disclaimer {
+            background: rgba(255, 255, 255, 0.95);
+            border-left: 4px solid #417cbd;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 16px rgba(42, 53, 121, 0.2);
+        }
+
+        .disclaimer h3 {
+            color: #2a3579;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .disclaimer p {
+            color: #2a3579;
+            margin: 0;
+            font-weight: 500;
+        }
+
+        .links-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 2rem;
+            border-radius: 15px;
+            margin-top: 2rem;
+            box-shadow: 0 8px 32px rgba(42, 53, 121, 0.37);
+        }
+
+        .links-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .link-card {
+            background: #ffffff;
+            padding: 1rem;
+            border-radius: 10px;
+            text-align: center;
+            transition: transform 0.3s ease;
+            border: 2px solid #417cbd;
+        }
+
+        .link-card:hover {
+            transform: translateY(-3px);
+            background: #417cbd;
+        }
+
+        .link-card:hover a {
+            color: #ffffff;
+        }
+
+        .link-card a {
+            color: #2a3579;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .logo-area {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .tab-buttons {
+                flex-direction: column;
+            }
+        }
     </style>
-  </head>
+</head>
   <body>
-    <a href="./pages/cameraTest.html">camera Testing</a>
-    <a href="./pages/mainModel.html">main Model</a>
     <script type="importmap">
         {
             "imports": {
@@ -22,6 +289,134 @@
             }
         }
     </script>
-    <script type="module" src="./main.js"></script>
-  </body>
+    <div class="container">
+        <header>
+            <div class="logo-area">
+                <div class="partner-logo">
+                    <a href="https://www.metrolibrary.org" target="_blank">Metropolitan Library System</a>
+                </div>
+                <div class="partner-logo">
+                    <a href="https://devlimited.org" target="_blank">DEV Limited</a>
+                </div>
+            </div>
+            <h1>Virtual Fairgrounds</h1>
+            <p class="subtitle">Preserving Oklahoma City's Historic Fairgrounds District</p>
+        </header>
+
+        <div class="main-content">
+            <div class="content-card description-section">
+                <h2>About the Project</h2>
+                <p>At the heart of the Virtual Fairgrounds project lies a profound commitment to preserving the essence of Oklahoma City's historic Fairgrounds District, an area once teeming with life and culture, now remembered only through scattered narratives and memories.</p>
+                
+                <p>This initiative leverages immersive virtual reality technology platforms designed by Drone's Eye View (DEV) to resurrect a neighborhood once vibrant with culture and community, but lost to the tides of urban renewal. The project, inspired by the visionary guidance of Librarian Judith Matthews, is not merely a technical feat; it is a heartfelt tribute to an Oklahoma City treasure tragically lost.</p>
+                
+                <p>By weaving archival recordings and oral histories into the fabric of the virtual environment, DEV aims to offer an immersive educational experience that honors the district's legacy. The urgency of this mission is underscored by the dwindling number of individuals who experienced Deep Deuce firsthand, making this project a crucial bridge between past and present generations.</p>
+            </div>
+
+            <div class="content-card info-tabs">
+                <div class="tab-buttons">
+                    <button class="tab-button active" onclick="showTab('history')">History</button>
+                    <button class="tab-button" onclick="showTab('technology')">Technology</button>
+                    <button class="tab-button" onclick="showTab('project')">Project</button>
+                </div>
+                
+                <div id="history" class="tab-content active">
+                    <h3>Historical Significance</h3>
+                    <p>The Fairgrounds District, also known as Deep Deuce, was a vibrant cultural hub in Oklahoma City's history. This area was once home to a thriving African American community with rich musical traditions, including jazz clubs and venues that hosted legendary performers.</p>
+                    <p>Urban renewal in the mid-20th century led to the displacement of this community and the destruction of many historic buildings, making this virtual preservation effort critically important for maintaining cultural memory.</p>
+                </div>
+                
+                <div id="technology" class="tab-content">
+                    <h3>Technical Implementation</h3>
+                    <p>This browser-based Virtual Fairgrounds experience uses cutting-edge WebGL technology through Three.js to create an immersive 3D environment accessible to anyone with a web browser.</p>
+                    <p>The project features advanced rendering techniques including custom fog effects, dynamic lighting, and detailed 3D models that recreate the historical atmosphere of the district.</p>
+                    <p>For the full VR experience, visit our dedicated VR application repository.</p>
+                </div>
+                
+                <div id="project" class="tab-content">
+                    <h3>Educational Mission</h3>
+                    <p>This project serves as a collaborative educational initiative between the Metropolitan Library System and DEV Limited, integrating real-world software development practices with community preservation efforts.</p>
+                    <p>The initiative combines technical achievement with meaningful service to historical preservation, creating a bridge between past and present generations.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="entry-section">
+            <a href="./pages/mainModel.html" class="enter-button">
+                🏛️ Enter the Fairgrounds Neighborhood
+            </a>
+        </div>
+
+        <div class="instructions-section">
+            <h2>Getting Started</h2>
+            <p><strong>Navigation:</strong> Lorem ipsum dolor sit amet, consectetur adipiscing elit. Use mouse to look around and WASD keys to move through the environment. Scroll to zoom in and out of the detailed 3D model.</p>
+            
+            <p><strong>Controls:</strong> Lorem ipsum dolor sit amet, consectetur adipiscing elit. Click and drag to rotate the camera view. The GUI panel on the right allows you to adjust lighting, fog effects, and camera settings.</p>
+            
+            <p><strong>Best Experience:</strong> Lorem ipsum dolor sit amet, consectetur adipiscing elit. For optimal performance, use a modern web browser with WebGL support. Chrome, Firefox, and Safari are recommended.</p>
+        </div>
+
+        <div class="disclaimer">
+            <h3>⚠️ Model Download Notice</h3>
+            <p>This application downloads a 3D model from our servers. The initial load may take a few moments depending on your internet connection. The model file is approximately 15-25MB and will be cached for future visits.</p>
+        </div>
+
+        <div class="links-section">
+            <h2>Additional Resources</h2>
+            <div class="links-grid">
+                <div class="link-card">
+                    <a href="https://github.com/DEVlimited/virtual-fairgrounds-web" target="_blank">Web App Repository</a>
+                </div>
+                <div class="link-card">
+                    <a href="https://github.com/DEVlimited/VirtualDeepDeuce" target="_blank">VR Application Repository</a>
+                </div>
+                <div class="link-card">
+                    <a href="https://www.metrolibrary.org" target="_blank">Metropolitan Library Catalog</a>
+                </div>
+                <div class="link-card">
+                    <a href="./pages/cameraTest.html">Camera Testing Tool</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2025 Virtual Fairgrounds Project | A collaboration between Metropolitan Library System and DEV Limited</p>
+        <p>Preserving Oklahoma City's cultural heritage through immersive technology</p>
+    </footer>
+
+    <script>
+        function showTab(tabName) {
+            // Hide all tab contents
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(tab => tab.classList.remove('active'));
+            
+            // Remove active class from all buttons
+            const tabButtons = document.querySelectorAll('.tab-button');
+            tabButtons.forEach(button => button.classList.remove('active'));
+            
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Activate selected button
+            event.target.classList.add('active');
+        }
+
+        // Add smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+        // Add loading animation when entering the fairgrounds
+        document.querySelector('.enter-button').addEventListener('click', function(e) {
+            this.innerHTML = '🔄 Loading Virtual Fairgrounds...';
+            this.style.backgroundColor = '#2a3579';
+        });
+    </script>
+</body>
 </html>
