@@ -275,13 +275,19 @@ function main() {
     const near = 0.1;
     const far = 650;
     const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-    camera.position.set(-53.35, 34.54, 4.64);
+    camera.position.set(-53.35, 32, 4.64);
 
 	const scene = new THREE.Scene();
 
     const gui = new GUI();
     
     // Camera controls
+
+    var cameraResetButton = {
+        reset_position: function() {
+            camera.position.set(-53.35, 32, 4.64);
+        }
+    };
     const cameraFolder = gui.addFolder('Camera');
     cameraFolder.add(camera, 'fov', 1, 180).onChange(() => {
         camera.updateProjectionMatrix();
@@ -289,6 +295,7 @@ function main() {
     const minMaxGUIHelper = new MinMaxGUIHelper(camera, 'near', 'far', 0.1);
     cameraFolder.add(minMaxGUIHelper, 'min', 0.1, 50, 0.1).name('near');
     cameraFolder.add(minMaxGUIHelper, 'max', 0.1, 650, 0.1).name('far');
+    cameraFolder.add(cameraResetButton, 'reset_position');
     cameraFolder.open();
 
     // Camera position display
