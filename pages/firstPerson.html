@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>First Person Testing</title>
+    <style>
+        html, body 
+        {
+            margin: 0;
+            height: 100%;
+        }
+        #c 
+        {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div id="camera-position">Camera Position:</div>
+    <canvas id="c"></canvas>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://threejs.org/examples/jsm/"
+            }
+        }
+    </script>
+    <script src="../public/js/firstPersonTest.js" type="module">
+    </script>
+</body>
+</html>
