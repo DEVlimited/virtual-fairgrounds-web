@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Virtual Fairgrounds - Preserving Oklahoma City's Historic Fairgrounds District</title>
+    <title>Virtual Fairgrounds - Preserving Oklahoma City's Historic Fairgrounds Neighborhood</title>
     <style>
         * {
             margin: 0;
@@ -35,37 +35,17 @@
             box-shadow: 0 8px 32px rgba(42, 53, 121, 0.37);
         }
 
-        .logo-area {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 2rem;
+        .header-image {
             margin-bottom: 1.5rem;
-            flex-wrap: wrap;
         }
 
-        .partner-logo {
-            background: #ffffff;
-            padding: 1rem;
+        .header-image img {
+            width: 100%;
+            max-width: 800px;
+            height: 300px;
+            object-fit: cover;
             border-radius: 10px;
-            border: 2px solid #417cbd;
-            transition: transform 0.3s ease;
-        }
-
-        .partner-logo:hover {
-            transform: translateY(-5px);
-            background: #417cbd;
-        }
-
-        .partner-logo:hover a {
-            color: #ffffff;
-        }
-
-        .partner-logo a {
-            color: #2a3579;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 1.1rem;
+            box-shadow: 0 4px 16px rgba(42, 53, 121, 0.3);
         }
 
         h1 {
@@ -158,12 +138,12 @@
         }
 
         .enter-button {
-            background: linear-gradient(45deg, #417cbd, #2a3579);
+            background: #417cbd;
             color: #ffffff;
             padding: 1.5rem 3rem;
             font-size: 1.3rem;
             font-weight: 600;
-            border: none;
+            border: 3px solid #2a3579;
             border-radius: 50px;
             cursor: pointer;
             text-decoration: none;
@@ -174,6 +154,8 @@
 
         .enter-button:hover {
             transform: translateY(-3px);
+            background: #2a3579;
+            border-color: #417cbd;
             box-shadow: 0 6px 20px rgba(42, 53, 121, 0.4);
         }
 
@@ -265,9 +247,8 @@
                 grid-template-columns: 1fr;
             }
             
-            .logo-area {
-                flex-direction: column;
-                gap: 1rem;
+            .header-image img {
+                height: 200px;
             }
             
             h1 {
@@ -280,27 +261,14 @@
         }
     </style>
 </head>
-  <body>
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-            }
-        }
-    </script>
+<body>
     <div class="container">
         <header>
-            <div class="logo-area">
-                <div class="partner-logo">
-                    <a href="https://www.metrolibrary.org" target="_blank">Metropolitan Library System</a>
-                </div>
-                <div class="partner-logo">
-                    <a href="https://devlimited.org" target="_blank">DEV Limited</a>
-                </div>
+            <div class="header-image">
+                <img src="/api/placeholder/800/300" alt="Virtual Fairgrounds Header Image" />
             </div>
             <h1>Virtual Fairgrounds</h1>
-            <p class="subtitle">Preserving Oklahoma City's Historic Fairgrounds District</p>
+            <p class="subtitle">Preserving Oklahoma City's Historic Fairgrounds Neighborhood</p>
         </header>
 
         <div class="main-content">
@@ -343,7 +311,7 @@
 
         <div class="entry-section">
             <a href="./pages/mainModel.html" class="enter-button">
-                🏛️ Enter the Fairgrounds Neighborhood
+                Enter the Fairgrounds Neighborhood
             </a>
         </div>
 
@@ -358,7 +326,7 @@
 
         <div class="disclaimer">
             <h3>⚠️ Model Download Notice</h3>
-            <p>This application downloads a 3D model from our servers. The initial load may take a few moments depending on your internet connection. The model file is approximately 15-25MB and will be cached for future visits.</p>
+            <p>This application downloads a 3D model from our servers. The initial load may take a few moments depending on your internet connection. The model file is approximately 250MB and will be cached for future visits.</p>
         </div>
 
         <div class="links-section">
@@ -369,6 +337,9 @@
                 </div>
                 <div class="link-card">
                     <a href="https://github.com/DEVlimited/VirtualDeepDeuce" target="_blank">VR Application Repository</a>
+                </div>
+                <div class="link-card">
+                    <a href="https://devlimited.org" target="_blank">DEV Limited</a>
                 </div>
                 <div class="link-card">
                     <a href="https://www.metrolibrary.org" target="_blank">Metropolitan Library Catalog</a>
