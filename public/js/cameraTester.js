@@ -194,6 +194,124 @@ class FogGUIHelper {
     }
 }
 
+class boundaryBox {
+    constructor(minX, maxX, minY, maxY, minZ, maxZ) {
+        this.min = new THREE.Vector3(minX, minY, minZ);
+        this.max = new THREE.Vector3(maxX, maxY, maxZ);
+
+        this.visualizationMaterial = new THREE.MeshBasicMaterial({
+            color: 0x00ff00,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.2
+        });
+        this.boundaryBox = null;
+    }
+
+    // Create a visible box to represent the boundary (for debugging)
+    createVisualization(scene) {
+        if (this.boundaryBox) scene.remove(this.boundaryBox);
+        
+        const geometry = new THREE.BoxGeometry(
+        this.max.x - this.min.x,
+        this.max.y - this.min.y,
+        this.max.z - this.min.z
+        );
+        
+        this.boundaryBox = new THREE.Mesh(geometry, this.visualizationMaterial);
+        this.boundaryBox.position.set(
+        (this.max.x + this.min.x) / 2,
+        (this.max.y + this.min.y) / 2,
+        (this.max.z + this.min.z) / 2
+        );
+        
+        scene.add(this.boundaryBox);
+        return this.boundaryBox;
+    }
+
+    isInBounds(position) {
+        return (
+            position.x >= this.min.x && position.x <= this.max.x &&
+            position.y >= this.min.y && position.y <= this.max.y &&
+            position.z >= this.min.z && position.z <= this.max.z
+        );
+    }
+
+    clampPosition(position) {
+        position.x = Math.max(this.min.x, Math.min(this.max.x, position.x));
+        position.y = Math.max(this.min.y, Math.min(this.max.y, position.y));
+        position.z = Math.max(this.min.z, Math.min(this.max.z, position.z));
+        return position;
+    }
+
+    // This function for this class was made by claude 
+    // I couldnt figure out how to properly check the position in the render
+    // due to how the movement worked and I didnt wanna have to change the movement or anything
+    // so I asked claude if there was a better way and who just spat this out and it works
+    // really well
+    // Apply constraints to the camera position
+    constrainCamera(camera, previousPosition = null) {
+        // Check if the current camera position is within bounds
+        if (!this.isInBounds(camera.position)) {
+        if (previousPosition && this.isInBounds(previousPosition)) {
+            // If we have a previous valid position, revert to it
+            camera.position.copy(previousPosition);
+        } else {
+            // Otherwise, clamp to the nearest valid position
+            const clampedPos = this.clampPosition(camera.position);
+            camera.position.copy(clampedPos);
+        }
+        return true; // Bounds were enforced
+        }
+        return false; // No bounds enforcement was necessary
+    }
+}
+
+// Same with this function, I originally had one like this but I couldnt quite figure out how to
+// setup a way to check the position before actually moving the camera, and then claude spat this out
+// and I didnt even think about changing the actual code of the libaray itself to make it do it for me
+// SMH i need more coffee cause the answer was so simple yet I couldnt think about it
+// Function to integrate with existing PointerLockControls
+function setupCameraBoundaries(scene, camera, controls) {
+  // Create boundaries - adjust these values to match your scene
+  const boundary = new boundaryBox(-62, -35, 32, 32, -34, 84);
+  
+  // Uncomment to visualize for debugging
+  boundary.createVisualization(scene);
+  
+  // Store the previous valid position
+  let lastValidPosition = camera.position.clone();
+  
+  // Original moveRight and moveForward functions
+  const originalMoveRight = controls.moveRight;
+  const originalMoveForward = controls.moveForward;
+  
+  // Override the movement functions to add boundary checks
+  controls.moveRight = function(distance) {
+    // Store the current position before movement
+    lastValidPosition.copy(camera.position);
+    
+    // Call the original function
+    originalMoveRight.call(this, distance);
+    
+    // Check if new position is valid
+    boundary.constrainCamera(camera, lastValidPosition);
+  };
+  
+  controls.moveForward = function(distance) {
+    // Store the current position before movement
+    lastValidPosition.copy(camera.position);
+    
+    // Call the original function
+    originalMoveForward.call(this, distance);
+    
+    // Check if new position is valid
+    boundary.constrainCamera(camera, lastValidPosition);
+  };
+  
+  return boundary;
+}
+
 function main() {
     // Set up the custom shader chunks for the advanced fog effect
     THREE.ShaderChunk.fog_fragment = `
@@ -231,19 +349,19 @@ function main() {
     #endif`;
     
     //CHATGPT SAVING THE DAY!!!!!
-    //I couldnt figure out what the problem was it kept saying shader issue
-    //so I looked and looked and looked through my code and the shaders were being properly
-    //loaded and setup so I was so confused what the problem was. 
-    //so I finally decided im going to ask AI. Claude couldnt figure it out,
-    //but my good old homie ChatGPT somehow figured out that i needed to initialize the worldPosition variable in
-    //the fog vertex using vec4. I was shocked and honestly relieved. 
+    // I couldnt figure out what the problem was it kept saying shader issue
+    // so I looked and looked and looked through my code and the shaders were being properly
+    // loaded and setup so I was so confused what the problem was. 
+    // so I finally decided im going to ask AI. Claude couldnt figure it out,
+    // but my good old homie ChatGPT somehow figured out that i needed to initialize the worldPosition variable in
+    // the fog vertex using vec4. I was shocked and honestly relieved. 
 
     //Prompt to AI -
-    //I am currently trying to implement a split view camera into my program as a 
+    // I am currently trying to implement a split view camera into my program as a 
     // test to configure the camera properly. Everything was working fine until I started implementing the camera code. 
-    //I am getting this error message and I need you to see if you can configure what it is meaning,
-    //also see if you can find the solution if possible.
-    //-Error message goes here but it is way to big-
+    // I am getting this error message and I need you to see if you can configure what it is meaning,
+    // also see if you can find the solution if possible.
+    // -Error message goes here but it is way to big-
     THREE.ShaderChunk.fog_vertex = `
     #ifdef USE_FOG
       vec4 worldPosition = modelMatrix * vec4(position, 1.0);
@@ -267,6 +385,8 @@ function main() {
     let prevTime = performance.now();
     const velocity = new THREE.Vector3();
     const direction = new THREE.Vector3();
+
+    let cameraBoundarySystem;
 
     const view1Elem = document.querySelector('#view1');
     const view2Elem = document.querySelector('#view2');
@@ -416,6 +536,17 @@ function main() {
         s.uniforms.fogTime = {value: 0.0};
     };
 
+    function setupBoundaries() {
+        cameraBoundarySystem = setupCameraBoundaries(scene, camera, controls);
+        
+        const boundaryFolder = gui.addFolder('Camera Boundaries');
+        boundaryFolder.add(cameraBoundarySystem.min, 'x', -150, 0).name('Min X');
+        boundaryFolder.add(cameraBoundarySystem.max, 'x', -100, 0).name('Max X');
+        boundaryFolder.add(cameraBoundarySystem.min, 'z', -150, 0).name('Min Z');
+        boundaryFolder.add(cameraBoundarySystem.max, 'z', 0, 150).name('Max Z');
+        boundaryFolder.open();
+    }
+
     // Function to set scissor for split view
     function setScissorForElement(elem) {
         const canvasRect = canvas.getBoundingClientRect();
@@ -513,6 +644,7 @@ function main() {
             
             scene.add(root);
             controls.update();
+            setupBoundaries();
 
             blocker.style.display = '';
             instructions.style.display = '';
@@ -580,12 +712,11 @@ function main() {
             direction.x = Number( moveRight ) - Number( moveLeft );
             direction.normalize();
 
-            if ( moveForward || moveBackward ) velocity.z -= direction.z * 400.0 * delta;
-            if ( moveLeft || moveRight ) velocity.x -= direction.x * 400.0 * delta;
+            if ( moveForward || moveBackward ) velocity.z -= direction.z * 100.0 * delta;
+            if ( moveLeft || moveRight ) velocity.x -= direction.x * 100.0 * delta;
 
             controls.moveRight( - velocity.x * delta );
             controls.moveForward( - velocity.z * delta );
-
         }
 
         prevTime = pointLockTime;
