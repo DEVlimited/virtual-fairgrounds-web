@@ -4,6 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { Euler } from 'three.js';
 
 const _NOISE_GLSL = `
 //
@@ -487,6 +488,8 @@ function main() {
     let moveLeft = false;
     let moveRight = false;
 
+    let cameraEuler = new Euler( 0, 0, 0, 'YXZ' );
+
     let prevTime = performance.now();
     const velocity = new THREE.Vector3();
     const direction = new THREE.Vector3();
@@ -604,6 +607,19 @@ function main() {
                 case 'KeyD':
                     moveRight = true;
                     break;
+                        
+            case 'KeyQ':
+                // camera.rotation.y += ( (  1 ) * Math.PI ) / 180;q
+                cameraEuler.setFromQuaternion(camera.quaternion);
+                cameraEuler.y -= -0.01 * 0.5 * 2;
+                camera.quaternion.setFromEuler(cameraEuler);
+                break;
+            
+            case 'KeyE':
+                cameraEuler.setFromQuaternion(camera.quaternion);
+                cameraEuler.y -= 0.01 * 0.5 * 2;
+                camera.quaternion.setFromEuler(cameraEuler);
+                break;
         }
     };
     const onKeyUp = function ( event ) {

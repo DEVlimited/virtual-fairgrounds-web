@@ -378,7 +378,6 @@ class boundaryBox {
 function setupCameraBoundaries(scene, camera, controls) {
   // Create boundaries - adjust these values to match your scene
   const boundary = new boundaryBox(-62, -35, 32, 32, -34, 84);
-  boundary.setRotationDegrees(0, -2, 0);
   
   // Uncomment to visualize for debugging
   boundary.createVisualization(scene);
@@ -574,12 +573,24 @@ function main() {
                 break;
 
             case 'ArrowRight':
-                case 'KeyD':
-                    moveRight = true;
-                    break;
+            case 'KeyD':
+                moveRight = true;
+                break;
+                        
+            case 'KeyQ':
+                cameraEuler.setFromQuaternion(camera.quaternion);
+                cameraEuler.y -= -0.01 * 0.5 * 2;
+                camera.quaternion.setFromEuler(cameraEuler);
+                break;
+            
+            case 'KeyE':
+                cameraEuler.setFromQuaternion(camera.quaternion);
+                cameraEuler.y -= 0.01 * 0.5 * 2;
+                camera.quaternion.setFromEuler(cameraEuler);
+                break;
         }
     };
-        const onKeyUp = function ( event ) {
+    const onKeyUp = function ( event ) {
 
         switch ( event.code ) {
 
