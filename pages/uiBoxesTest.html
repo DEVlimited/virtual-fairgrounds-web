@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>UI Boxes Test - Virtual Fairgrounds</title>
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+        html,
+        body {
+            margin: 0;
+            height: 100%;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #417cbd 0%, #2a3579 100%);
+        }
+
+        /* Canvas placeholder for testing */
+        #c {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background: #222;
+        }
+
+        /* UI Overlay Boxes */
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .ui-box {
+            position: absolute;
+            background: rgba(42, 53, 121, 0.85);
+            border: 2px solid rgba(65, 124, 189, 0.8);
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            pointer-events: auto;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            color: white;
+            overflow-y: auto;
+        }
+
+        /* Left Box: 25% width, 40% height, positioned on left side */
+        .ui-box.left {
+            width: 23%;
+            height: 38%;
+            left: 2%;
+            top: 50%;
+            transform: translateY(-50%);
+            border: 3px solid red !important;
+            /* Debug border */
+        }
+
+        /* Middle Box: 50% width, 20% height, centered */
+        .ui-box.middle {
+            width: 48%;
+            height: 18%;
+            left: 50%;
+            top: 5%;
+            transform: translateX(-50%);
+            border: 3px solid green !important;
+            /* Debug border */
+        }
+
+        /* Right Box: 25% width, 40% height, positioned on right side */
+        .ui-box.right {
+            width: 23%;
+            height: 38%;
+            right: 2%;
+            top: 50%;
+            transform: translateY(-50%);
+            border: 3px solid blue !important;
+            /* Debug border */
+        }
+
+        /* Box Headers */
+        .ui-box h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #B1E1FF;
+            border-bottom: 1px solid rgba(177, 225, 255, 0.3);
+            padding-bottom: 5px;
+        }
+
+        /* Box Content */
+        .ui-box p {
+            margin-bottom: 10px;
+            line-height: 1.4;
+            font-size: 14px;
+        }
+
+        /* Test button to toggle visibility */
+        .test-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 200;
+        }
+
+        .test-button {
+            background: #417cbd;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        .test-button:hover {
+            background: #2a3579;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 1024px) {
+
+            .ui-box.left,
+            .ui-box.right {
+                width: 28%;
+                height: 35%;
+            }
+
+            .ui-box.middle {
+                width: 55%;
+                height: 15%;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .ui-box {
+                padding: 15px;
+            }
+
+            .ui-box.left {
+                width: 90%;
+                height: 25%;
+                left: 5%;
+                top: 5%;
+                transform: none;
+            }
+
+            .ui-box.middle {
+                width: 90%;
+                height: 20%;
+                left: 5%;
+                top: 32%;
+                transform: none;
+            }
+
+            .ui-box.right {
+                width: 90%;
+                height: 25%;
+                right: auto;
+                left: 5%;
+                top: 54%;
+                transform: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Placeholder canvas -->
+    <div id="c"></div>
+
+    <!-- UI Overlay Container -->
+    <div class="ui-overlay" id="uiOverlay">
+        <!-- Left Box -->
+        <div class="ui-box left">
+            <h3>Left Box (RED BORDER)</h3>
+            <p><strong>Size:</strong> 25% width × 40% height</p>
+            <p><strong>Position:</strong> Left side, vertically centered</p>
+            <p>This box should be visible on the left side of your screen with a red border.</p>
+        </div>
+
+        <!-- Middle Box -->
+        <div class="ui-box middle">
+            <h3>Middle Box (GREEN BORDER)</h3>
+            <p><strong>Size:</strong> 50% width × 20% height</p>
+            <p><strong>Position:</strong> Top center</p>
+            <p>This box should be at the top center with a green border.</p>
+        </div>
+
+        <!-- Right Box -->
+        <div class="ui-box right">
+            <h3>Right Box (BLUE BORDER)</h3>
+            <p><strong>Size:</strong> 25% width × 40% height</p>
+            <p><strong>Position:</strong> Right side, vertically centered</p>
+            <p>This box should be on the right side with a blue border.</p>
+        </div>
+    </div>
+
+    <!-- Test Controls -->
+    <div class="test-controls">
+        <button class="test-button" onclick="toggleUI()">Toggle UI Boxes</button>
+        <button class="test-button" onclick="logBoxInfo()">Log Box Info</button>
+    </div>
+
+    <script>
+        function toggleUI() {
+            const overlay = document.getElementById('uiOverlay');
+            if (overlay.style.display === 'none') {
+                overlay.style.display = 'block';
+                console.log('UI shown');
+            } else {
+                overlay.style.display = 'none';
+                console.log('UI hidden');
+            }
+        }
+
+        function logBoxInfo() {
+            const boxes = document.querySelectorAll('.ui-box');
+            console.log('Found', boxes.length, 'UI boxes');
+            boxes.forEach((box, index) => {
+                const rect = box.getBoundingClientRect();
+                console.log(`Box ${index + 1}:`, {
+                    className: box.className,
+                    position: {
+                        left: rect.left,
+                        top: rect.top,
+                        width: rect.width,
+                        height: rect.height
+                    },
+                    visible: rect.width > 0 && rect.height > 0
+                });
+            });
+        }
+
+        // Auto-log box info on load
+        window.addEventListener('load', function () {
+            setTimeout(logBoxInfo, 1000);
+        });
+    </script>
+</body>
+
+</html>
