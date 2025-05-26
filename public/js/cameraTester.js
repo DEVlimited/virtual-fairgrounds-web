@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
-import { Euler } from 'three.js';
+import { Euler } from 'three';
 
 const _NOISE_GLSL = `
 //
@@ -528,6 +528,11 @@ function main() {
     const gui = new GUI();
     
     // Camera controls
+    var cameraResetButton = {
+        reset_position: function() {
+            camera.position.set(-53.35, 32, 4.64);
+        }
+    };
     const cameraFolder = gui.addFolder('Camera');
     cameraFolder.add(camera, 'fov', 1, 180).onChange(() => {
         camera.updateProjectionMatrix();
@@ -535,6 +540,7 @@ function main() {
     const minMaxGUIHelper = new MinMaxGUIHelper(camera, 'near', 'far', 0.1);
     cameraFolder.add(minMaxGUIHelper, 'min', 0.1, 50, 0.1).name('near');
     cameraFolder.add(minMaxGUIHelper, 'max', 0.1, 650, 0.1).name('far');
+    cameraFolder.add(cameraResetButton, 'reset_position');
     cameraFolder.open();
 
     // Camera position display

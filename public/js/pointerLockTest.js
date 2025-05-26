@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { Euler }  from 'three';
 
 const _NOISE_GLSL = `
 //
@@ -388,6 +389,7 @@ function setupCameraBoundaries(scene, camera, controls) {
   // Original moveRight and moveForward functions
   const originalMoveRight = controls.moveRight;
   const originalMoveForward = controls.moveForward;
+  const originalMouseMove = controls.onMouseMove;
   
   // Override the movement functions to add boundary checks
   controls.moveRight = function(distance) {
@@ -411,6 +413,14 @@ function setupCameraBoundaries(scene, camera, controls) {
     // Check if new position is valid
     boundary.constrainCamera(camera, lastValidPosition);
   };
+
+  controls.onMouseMove = function(event) {
+    if ( middleMouseClicked ) {
+        return;
+    }
+
+    originalMouseMove.call(this, event);
+  }
   
   return boundary;
 }
@@ -484,6 +494,9 @@ function main() {
     let moveBackward = false;
     let moveLeft = false;
     let moveRight = false;
+    let isGUIMode = false;
+
+    let cameraEuler = new Euler( 0, 0, 0, 'YXZ' );
 
     let cameraBoundarySystem;
 
@@ -506,6 +519,7 @@ function main() {
 
     const blocker = document.getElementById( 'blocker' );
     const instructions = document.getElementById( 'instructions' );
+    let instructionsActive = true;
 
     const fov = 55;
     const aspect = 2; // the canvas default
@@ -538,19 +552,52 @@ function main() {
 
     instructions.addEventListener( 'click', function () {
         controls.lock();
-    });
-
-    controls.addEventListener( 'lock', function () {
+        instructionsActive = false;
         instructions.style.display = 'none';
         blocker.style.display = 'none';
     });
 
     controls.addEventListener( 'unlock', function () {
-        instructions.style.display = '';
-        blocker.style.display = '';
+        controls.unlock();
+        if(!isGUIMode) {
+            instructionsActive = true;
+            instructions.style.display = '';
+            blocker.style.display = '';
+        }
     });
 
     scene.add( controls.object );
+
+    function toggleGUIMode() {
+        isGUIMode = !isGUIMode;
+
+        if ( isGUIMode && !instructionsActive) {
+            if ( controls.isLocked ) {
+                controls.unlock();
+            }
+            console.log('GUI Mode: Activated - Mouse is now free for GUI interaction');
+            updateGUIVisibility();
+        } else if(!instructionsActive) {
+            controls.lock();
+            console.log('GUID Mode: Deactivated - Camera Controls active');
+            updateGUIVisibility();
+        }
+    }
+
+    function updateGUIVisibility() {
+        const guiElements = document.querySelectorAll('.lil-gui');
+        guiElements.forEach(element => {
+            if (isGUIMode) {
+                element.style.pointerEvents = 'auto';
+                element.style.opacity = '1';
+            } else {
+                element.style.pointerEvents = 'none';
+                element.style.opacity = '0.3';
+            }
+        });
+
+        document.body.style.cursor = isGUIMode ? 'default' : 'none';
+    }
 
     //This is the movement event function for the keys when they go up and down
     const onKeyDown = function ( event ) {
@@ -576,14 +623,15 @@ function main() {
             case 'KeyD':
                 moveRight = true;
                 break;
-                        
-            case 'KeyQ':
+            
+            
+            case isGUIMode && 'KeyQ':
                 cameraEuler.setFromQuaternion(camera.quaternion);
                 cameraEuler.y -= -0.01 * 0.5 * 2;
                 camera.quaternion.setFromEuler(cameraEuler);
                 break;
-            
-            case 'KeyE':
+
+            case isGUIMode && 'KeyE':
                 cameraEuler.setFromQuaternion(camera.quaternion);
                 cameraEuler.y -= 0.01 * 0.5 * 2;
                 camera.quaternion.setFromEuler(cameraEuler);
@@ -610,13 +658,20 @@ function main() {
                 break;
 
             case 'ArrowRight':
-                case 'KeyD':
-                    moveRight = false;
-                    break;
+            case 'KeyD':
+                moveRight = false;
+                break;
+        }
+    };
+    function handleMiddleClick(event) {
+        if ( event.button === 1 ){
+            event.preventDefault();
+            toggleGUIMode();
         }
     };
     document.addEventListener( 'keydown', onKeyDown );
     document.addEventListener( 'keyup', onKeyUp );
+    document.addEventListener( 'mousedown', handleMiddleClick);
 
     // Store shaders that need to be updated with fogTime
     const shaders = [];
@@ -726,6 +781,7 @@ function main() {
     fogFolder.add(fogGUIHelper, 'density', 0, 0.05, 0.0001);
     fogFolder.addColor(fogGUIHelper, 'color');
     fogFolder.open();
+    updateGUIVisibility();
 
     // Load the GLTF model
     {
@@ -808,7 +864,7 @@ function main() {
 
         const pointLockTime = performance.now();
 
-        if ( controls.isLocked === true ){
+        if ( controls.isLocked === true || isGUIMode ){
 
             const delta = ( time - prevTime ) / 1000;
 
