@@ -1,10 +1,8 @@
-//core lirbaries
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
-import { Euler } from 'three';
+import { Euler }  from 'three';
 
 const _NOISE_GLSL = `
 //
@@ -192,6 +190,62 @@ class FogGUIHelper {
     }
     set color(hexString) {
         this.fog.color.set(hexString);
+    }
+}
+
+class popUpSphere {
+    constructor(posX, posY, posZ, radius, width, height) {
+
+        this.cameraInside = false;
+
+        this.position = new THREE.Vector3(posX, posY, posZ);
+
+        this.geometryParams = {
+            r: radius,
+            w: width,
+            h: height
+        };
+
+        this.sphereObject = null;
+    }
+
+    createSphereRadius(scene) {
+        if(this.sphereObject) scene.remove(this.sphereObject);
+
+        const newSphereMaterial = new THREE.MeshBasicMaterial({
+            color: 0x00ff00,
+            opacity: 0.5,
+            transparent: true,
+            wireframe: true,
+        });
+
+        const geometry = new THREE.SphereGeometry(
+            this.geometryParams.r, 
+            this.geometryParams.w, 
+            this.geometryParams.h
+        );
+
+        this.sphereObject = new THREE.Mesh(geometry, newSphereMaterial);
+        this.sphereObject.position.set(this.position.x, this.position.y, this.position.z);
+
+        scene.add(this.sphereObject);
+        return(this.sphereObject);
+    }
+
+    checkForIntersection(camera) {
+        const cameraPosition = new THREE.Vector3();
+        camera.getWorldPosition(cameraPosition);
+
+        const sphereCenter = this.sphereObject.position.clone();
+
+        const distance = cameraPosition.distanceTo(sphereCenter);
+
+        if (distance < this.geometryParams.r) {
+            console.log('Camera inside sphere');
+            this.cameraInside = true;
+        } else if ( distance >= this.geometryParams.r) {
+            this.cameraInside = false;
+        }
     }
 }
 
@@ -391,6 +445,7 @@ function setupCameraBoundaries(scene, camera, controls) {
   // Original moveRight and moveForward functions
   const originalMoveRight = controls.moveRight;
   const originalMoveForward = controls.moveForward;
+  const originalMouseMove = controls.onMouseMove;
   
   // Override the movement functions to add boundary checks
   controls.moveRight = function(distance) {
@@ -414,6 +469,14 @@ function setupCameraBoundaries(scene, camera, controls) {
     // Check if new position is valid
     boundary.constrainCamera(camera, lastValidPosition);
   };
+
+  controls.onMouseMove = function(event) {
+    if ( middleMouseClicked ) {
+        return;
+    }
+
+    originalMouseMove.call(this, event);
+  }
   
   return boundary;
 }
@@ -455,19 +518,19 @@ function main() {
     #endif`;
     
     //CHATGPT SAVING THE DAY!!!!!
-    // I couldnt figure out what the problem was it kept saying shader issue
-    // so I looked and looked and looked through my code and the shaders were being properly
-    // loaded and setup so I was so confused what the problem was. 
-    // so I finally decided im going to ask AI. Claude couldnt figure it out,
-    // but my good old homie ChatGPT somehow figured out that i needed to initialize the worldPosition variable in
-    // the fog vertex using vec4. I was shocked and honestly relieved. 
+    //I couldnt figure out what the problem was it kept saying shader issue
+    //so I looked and looked and looked through my code and the shaders were being properly
+    //loaded and setup so I was so confused what the problem was. 
+    //so I finally decided im going to ask AI. Claude couldnt figure it out,
+    //but my good old homie ChatGPT somehow figured out that i needed to initialize the worldPosition variable in
+    //the fog vertex using vec4. I was shocked and honestly relieved. 
 
     //Prompt to AI -
-    // I am currently trying to implement a split view camera into my program as a 
+    //I am currently trying to implement a split view camera into my program as a 
     // test to configure the camera properly. Everything was working fine until I started implementing the camera code. 
-    // I am getting this error message and I need you to see if you can configure what it is meaning,
-    // also see if you can find the solution if possible.
-    // -Error message goes here but it is way to big-
+    //I am getting this error message and I need you to see if you can configure what it is meaning,
+    //also see if you can find the solution if possible.
+    //-Error message goes here but it is way to big-
     THREE.ShaderChunk.fog_vertex = `
     #ifdef USE_FOG
       vec4 worldPosition = modelMatrix * vec4(position, 1.0);
@@ -489,17 +552,15 @@ function main() {
     let moveBackward = false;
     let moveLeft = false;
     let moveRight = false;
+    let isGUIMode = false;
 
     let cameraEuler = new Euler( 0, 0, 0, 'YXZ' );
+
+    let cameraBoundarySystem;
 
     let prevTime = performance.now();
     const velocity = new THREE.Vector3();
     const direction = new THREE.Vector3();
-
-    let cameraBoundarySystem;
-
-    const view1Elem = document.querySelector('#view1');
-    const view2Elem = document.querySelector('#view2');
 
     const loadingDiv = document.createElement('div');
     loadingDiv.style.position = 'absolute';
@@ -514,20 +575,80 @@ function main() {
     loadingDiv.textContent = 'Loading model (0%)...';
     document.body.appendChild(loadingDiv);
 
+    const blocker = document.getElementById( 'blocker' );
+    const instructions = document.getElementById( 'instructions' );
+    let instructionsActive = true;
+
     const fov = 55;
     const aspect = 2; // the canvas default
-    const near = 0.9;
+    const near = 0.1;
     const far = 650;
     const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
     camera.position.set(-53.35, 32, 4.64);
 
-    // Create a camera helper for the split view
-    const cameraHelper = new THREE.CameraHelper(camera);
-
-    const blocker = document.getElementById( 'blocker' );
-    const instructions = document.getElementById( 'instructions' );
+	const scene = new THREE.Scene();
 
     const gui = new GUI();
+
+    // Pop Up Object functionality
+    const PopupManager = {
+
+        overlay: document.getElementById('popup'),
+        container: document.querySelector('.popup-container'),
+        title: document.getElementById('popup-title'),
+        content: document.getElementById('popup-content'),
+
+        // This just unhides the pop up nothing special
+        show: function(title = 'Popup', content = '') {
+
+            this.title.textContent = title;
+
+            this.content.innerHTML = content;
+
+            this.overlay.style.display = 'block';
+            this.overlay.classList.add('show');
+            this.container.classList.add('show');
+
+            document.body.style.overflow = 'hidden';
+        },
+
+        // self explanatory...
+        hide: function() {
+
+            this.overlay.classList.remove('show');
+            this.container.classList.remove('show');
+
+            setTimeout(() => {
+                this.overlay.style.display = 'none';
+            }, 300);
+
+            document.body.style.overflow = 'auto';
+        },
+
+        // This basically is where it defines if it is a image or text pop up. Can be edited to do anything tbh
+        showText: function(title, text) {
+            this.show(title, `<p>${text}</p>`);
+        },
+
+        showImage: function(title, imageSrc, altText = '', caption = '') {
+            let content = `<img src="${imageSrc}" alt"${altText}">`;
+            if (caption) {
+                content += `<p><em>${caption}</em></p>`;
+            }
+            this.show(title, content);
+        }
+    };
+
+    function closePopup() {
+        PopupManager.hide();
+    }
+
+
+    document.getElementById('popup').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closePopup();
+        }
+    });
     
     // Camera controls
     var cameraResetButton = {
@@ -545,53 +666,67 @@ function main() {
     cameraFolder.add(cameraResetButton, 'reset_position');
     cameraFolder.open();
 
-    // Camera position display
-    const cameraPositionElement = document.getElementById('camera-position');
-    function updateCameraPosition() {
-        const x = camera.position.x;
-        const y = camera.position.y;
-        const z = camera.position.z;
-        if (cameraPositionElement) {
-            cameraPositionElement.textContent = `Camera Position: X - ${x.toFixed(2)}, Y - ${y.toFixed(2)}, Z - ${z.toFixed(2)}`;
-        }
-    }
-
-    const controls = new PointerLockControls(camera, view1Elem);
-
-    // Second camera for the overview
-    const camera2 = new THREE.PerspectiveCamera(
-        60,  // fov
-        2,   // aspect
-        0.1, // near
-        1000, // far
-    );
-    camera2.position.set(0, 100, 100);
-    camera2.lookAt(0, 0, 0);
-    
-    const controls2 = new OrbitControls(camera2, view2Elem);
-    controls2.target.set(0, 5, 0);
-    controls2.update();
-
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color('black');
-    scene.add(cameraHelper);
+    const controls = new PointerLockControls(camera, canvas);
+    controls.maxPolarAngle = (120 * Math.PI) / 180;
+    controls.minPolarAngle = (60 * Math.PI) / 180;
 
     instructions.addEventListener( 'click', function () {
-        controls.lock();
-    });
-
-    controls.addEventListener( 'lock', function () {
-        instructions.style.display = 'none';
-        blocker.style.display = 'none';
+        if (!isGUIMode) {
+            controls.lock();
+            instructionsActive = false;
+            instructions.style.display = 'none';
+            blocker.style.display = 'none';
+        }
     });
 
     controls.addEventListener( 'unlock', function () {
-        instructions.style.display = '';
-        blocker.style.display = '';
+        controls.unlock();
+        console.log('Controls have been unlocked');
+        if(!isGUIMode) {
+            instructionsActive = true;
+            instructions.style.display = '';
+            blocker.style.display = '';
+        }
     });
+
+    controls.addEventListener('lock', function () {
+        console.log('controls have been locked');
+    })
 
     scene.add( controls.object );
 
+    function toggleGUIMode() {
+        isGUIMode = !isGUIMode;
+
+        if ( isGUIMode && !instructionsActive) {
+            if ( controls.isLocked ) {
+                controls.unlock();
+            }
+            console.log('GUI Mode: Activated - Mouse is now free for GUI interaction');
+            updateGUIVisibility();
+        } else if(!instructionsActive) {
+            controls.lock();
+            console.log('GUID Mode: Deactivated - Camera Controls active');
+            updateGUIVisibility();
+        }
+    }
+
+    function updateGUIVisibility() {
+        const guiElements = document.querySelectorAll('.lil-gui');
+        guiElements.forEach(element => {
+            if (isGUIMode) {
+                element.style.pointerEvents = 'auto';
+                element.style.opacity = '1';
+            } else {
+                element.style.pointerEvents = 'none';
+                element.style.opacity = '0.3';
+            }
+        });
+
+        document.body.style.cursor = isGUIMode ? 'default' : 'none';
+    }
+
+    //This is the movement event function for the keys when they go up and down
     const onKeyDown = function ( event ) {
 
         switch ( event.code ) {
@@ -612,18 +747,18 @@ function main() {
                 break;
 
             case 'ArrowRight':
-                case 'KeyD':
-                    moveRight = true;
-                    break;
-                        
-            case 'KeyQ':
-                // camera.rotation.y += ( (  1 ) * Math.PI ) / 180;q
+            case 'KeyD':
+                moveRight = true;
+                break;
+            
+            
+            case isGUIMode && 'KeyQ':
                 cameraEuler.setFromQuaternion(camera.quaternion);
                 cameraEuler.y -= -0.01 * 0.5 * 2;
                 camera.quaternion.setFromEuler(cameraEuler);
                 break;
-            
-            case 'KeyE':
+
+            case isGUIMode && 'KeyE':
                 cameraEuler.setFromQuaternion(camera.quaternion);
                 cameraEuler.y -= 0.01 * 0.5 * 2;
                 camera.quaternion.setFromEuler(cameraEuler);
@@ -650,13 +785,20 @@ function main() {
                 break;
 
             case 'ArrowRight':
-                case 'KeyD':
-                    moveRight = false;
-                    break;
+            case 'KeyD':
+                moveRight = false;
+                break;
+        }
+    };
+    function handleMiddleClick(event) {
+        if ( event.button === 1 ){
+            event.preventDefault();
+            toggleGUIMode();
         }
     };
     document.addEventListener( 'keydown', onKeyDown );
     document.addEventListener( 'keyup', onKeyUp );
+    document.addEventListener( 'mousedown', handleMiddleClick);
 
     // Store shaders that need to be updated with fogTime
     const shaders = [];
@@ -664,6 +806,20 @@ function main() {
         shaders.push(s);
         s.uniforms.fogTime = {value: 0.0};
     };
+
+	//Got this scenegraph dump code from the threejs documentation, super helperful
+	//and it looks great in the console
+	function dumpObject( obj, lines = [], isLast = true, prefix = '' ) {
+		const localPrefix = isLast ? '└─' : '├─';
+		lines.push( `${prefix}${prefix ? localPrefix : ''}${obj.name || '*no-name*'} [${obj.type}]` );
+		const newPrefix = prefix + ( isLast ? '  ' : '│ ' );
+		const lastNdx = obj.children.length - 1;
+		obj.children.forEach( ( child, ndx ) => {
+			const isLast = ndx === lastNdx;
+			dumpObject( child, lines, isLast, newPrefix );
+		} );
+		return lines;
+	}
 
     function setupBoundaries() {
         cameraBoundarySystem = setupCameraBoundaries(scene, camera, controls);
@@ -673,7 +829,7 @@ function main() {
         boundaryFolder.add(cameraBoundarySystem.max, 'x', -100, 0).name('Max X');
         boundaryFolder.add(cameraBoundarySystem.min, 'z', -150, 0).name('Min Z');
         boundaryFolder.add(cameraBoundarySystem.max, 'z', 0, 150).name('Max Z');
-        //This is what claude created to setup the rotation GUI
+        // This is what claude created to setup the rotation GUI
         // Add rotation controls using degrees (more user-friendly)
         // The key insight here is that we're directly manipulating the object's properties
         // and then calling updateRotation() whenever a value changes
@@ -701,28 +857,9 @@ function main() {
         boundaryFolder.open();
     }
 
-    // Function to set scissor for split view
-    function setScissorForElement(elem) {
-        const canvasRect = canvas.getBoundingClientRect();
-        const elemRect = elem.getBoundingClientRect();
-        
-        // compute a canvas relative rectangle
-        const right = Math.min(elemRect.right, canvasRect.right) - canvasRect.left;
-        const left = Math.max(0, elemRect.left - canvasRect.left);
-        const bottom = Math.min(elemRect.bottom, canvasRect.bottom) - canvasRect.top;
-        const top = Math.max(0, elemRect.top - canvasRect.top);
-        
-        const width = Math.min(canvasRect.width, right - left);
-        const height = Math.min(canvasRect.height, bottom - top);
-        
-        // setup the scissor to only render to that part of the canvas
-        const positiveYUpBottom = canvasRect.height - bottom;
-        renderer.setScissor(left, positiveYUpBottom, width, height);
-        renderer.setViewport(left, positiveYUpBottom, width, height);
-        
-        // return the aspect
-        return width / height;
-    }
+    //Theater Sphere Intersection popup
+    const theaterSphere = new popUpSphere(-34, 32, -7, 5, 8, 4);
+    theaterSphere.createSphereRadius(scene);
 
     // Add hemisphere light
     {
@@ -746,6 +883,7 @@ function main() {
         lightFolder.addColor(new ColorGUIHelper(light, 'color'), 'value').name('color');
         lightFolder.add(light, 'intensity', 0, 5, 0.01);
         lightFolder.open();
+
     }
 
     // Add skybox and GUI Controls
@@ -780,6 +918,7 @@ function main() {
             // Now that the skybox is loaded, set up the GUI control
             setupSkyboxGUI();
         });
+
     }
 
     // Create the skybox control object with a proper property that holds the current selection
@@ -793,12 +932,14 @@ function main() {
                 controls.disconnect();
                 document.removeEventListener( 'keydown', onKeyDown );
                 document.removeEventListener( 'keyup', onKeyUp );
+                document.removeEventListener( 'mousedown', handleMiddleClick);
                 setTimeout(() => {
                     skySphereMesh.material.map = skyBoxTextures[newTextureName];
                     skySphereMesh.material.needsUpdate = true;
                 }, 100);
                 document.addEventListener( 'keydown', onKeyDown );
                 document.addEventListener( 'keyup', onKeyUp );
+                document.addEventListener( 'mousedown', handleMiddleClick);
                 controls.connect(canvas);
                 controls.object.position.copy(camera.position);
                 console.log('Skybox changed to:', newTextureName);
@@ -829,6 +970,7 @@ function main() {
     fogFolder.add(fogGUIHelper, 'density', 0, 0.05, 0.0001);
     fogFolder.addColor(fogGUIHelper, 'color');
     fogFolder.open();
+    updateGUIVisibility();
 
     // Load the GLTF model
     {
@@ -838,6 +980,8 @@ function main() {
             const root = gltf.scene;
             
             // Apply shader modification to all meshes in the scene
+			// Also wanted to note this was done by ChatGPT as well. It was part of the problem
+			// to some degree but not as major, this just helps load the shaders properly
             root.traverse((child) => {
                 if (child.isMesh && child.material) {
                     if (Array.isArray(child.material)) {
@@ -851,9 +995,11 @@ function main() {
             });
             
             scene.add(root);
-            controls.update();
-            setupBoundaries();
+			console.log(dumpObject(root).join('\n'));
+			
+            // controls.update();
 
+            setupBoundaries();
             blocker.style.display = '';
             instructions.style.display = '';
         },
@@ -874,6 +1020,7 @@ function main() {
             loadingDiv.style.background = 'rgba(255,0,0,0.7)';
             console.error('Error loading model:', error);
         });
+
     }
 
     function resizeRendererToDisplaySize(renderer) {
@@ -905,11 +1052,16 @@ function main() {
             s.uniforms.fogTime.value = totalTime;
         }
 
-        resizeRendererToDisplaySize(renderer);
-
         const pointLockTime = performance.now();
 
-        if ( controls.isLocked === true ){
+        if ( controls.isLocked === true && !theaterSphere.cameraInside) {
+            theaterSphere.checkForIntersection(camera);
+            // if ( theaterSphere.cameraInside) {
+            //     PopupManager.showText()
+            // }
+        }
+
+        if ( controls.isLocked === true || isGUIMode ){
 
             const delta = ( time - prevTime ) / 1000;
 
@@ -925,44 +1077,21 @@ function main() {
 
             controls.moveRight( - velocity.x * delta );
             controls.moveForward( - velocity.z * delta );
+
         }
 
         prevTime = pointLockTime;
-    
-        // Turn on the scissor
-        renderer.setScissorTest(true);
-    
-        // Render the original view
-        {
-            const aspect = setScissorForElement(view1Elem);
-            blocker.style.width = aspect;
-        
-            // Adjust the camera for this aspect
-            camera.aspect = aspect;
-            camera.updateProjectionMatrix();
-        
-            // Don't draw the camera helper in the original view
-            cameraHelper.visible = false;
-        
-            // Render
-            renderer.render(scene, camera);
-        }
-    
-        // Render from the 2nd camera
-        {
-            const aspect = setScissorForElement(view2Elem);
-        
-            // Adjust the camera for this aspect
-            camera2.aspect = aspect;
-            camera2.updateProjectionMatrix();
-        
-            // Draw the camera helper in the 2nd view
-            cameraHelper.visible = true;
-        
-            renderer.render(scene, camera2);
-        }
 
-        updateCameraPosition();
+		if(resizeRendererToDisplaySize(renderer) ) {
+			// Adjust the camera for this aspect
+			const canvas = renderer.domElement;
+			camera.aspect = canvas.clientWidth / canvas.clientHeight;
+			camera.updateProjectionMatrix();
+		}
+	
+		// Render
+		renderer.render(scene, camera);
+
         requestAnimationFrame(render);
     }
 
