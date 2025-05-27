@@ -490,6 +490,8 @@ function main() {
     const renderer = new THREE.WebGLRenderer({ antialias: true, canvas });
     const baseURL = 'https://storage.googleapis.com/fairgrounds-model/';
 
+    let skyBoxTextures;
+
     let moveForward = false;
     let moveBackward = false;
     let moveLeft = false;
@@ -553,20 +555,27 @@ function main() {
     controls.minPolarAngle = (60 * Math.PI) / 180;
 
     instructions.addEventListener( 'click', function () {
-        controls.lock();
-        instructionsActive = false;
-        instructions.style.display = 'none';
-        blocker.style.display = 'none';
+        if (!isGUIMode) {
+            controls.lock();
+            instructionsActive = false;
+            instructions.style.display = 'none';
+            blocker.style.display = 'none';
+        }
     });
 
     controls.addEventListener( 'unlock', function () {
         controls.unlock();
+        console.log('Controls have been unlocked');
         if(!isGUIMode) {
             instructionsActive = true;
             instructions.style.display = '';
             blocker.style.display = '';
         }
     });
+
+    controls.addEventListener('lock', function () {
+        console.log('controls have been locked');
+    })
 
     scene.add( controls.object );
 
@@ -756,10 +765,19 @@ function main() {
         lightFolder.open();
     }
 
-    // Add skybox
+    // Add skybox and GUI Controls
+    // I had claude help me figure out what was going wrong. 
+    // For some reason even though my code is almost the exact same as his
+    // Mine couldnt read the currentSkybox variable, and the min I pasted his into the
+    // code it worked perfectly fine.
+    let skySphereMesh;
     {
         let loader = new THREE.TextureLoader();
-        const imagePath = '../public/skybox/Panorama_Sky_23-512x512.png';
+        skyBoxTextures = {
+            pinkSky: loader.load('../public/skybox/pink_sunset.png'),
+            blueSky: loader.load('../public/skybox/Panorama_Sky_02-512x512.png')
+        }
+        const imagePath = '../public/skybox/pink_sunset.png';
         loader.load(imagePath, (panoramaTexture) => {
             const skySphereGeometry = new THREE.SphereGeometry(500, 60, 60);
 
@@ -770,10 +788,55 @@ function main() {
             });
 
             skySphereMaterial.side = THREE.BackSide;
-            let skySphereMesh = new THREE.Mesh(skySphereGeometry, skySphereMaterial);
+            skySphereMesh = new THREE.Mesh(skySphereGeometry, skySphereMaterial);
             skySphereMesh.material.onBeforeCompile = ModifyShader;
             scene.add(skySphereMesh);
+            
+            // Now that the skybox is loaded, set up the GUI control
+            setupSkyboxGUI();
         });
+    }
+
+    // Create the skybox control object with a proper property that holds the current selection
+    var skyboxController = {
+        // This property will hold the current skybox selection
+        currentSkybox: 'pinkSky', // Set the initial value to match what we load by default
+        
+        // This function handles changing the skybox
+        changeSkyBox: function(newTextureName) {
+            if (skySphereMesh && skyBoxTextures[newTextureName]) {
+                controls.disconnect();
+                document.removeEventListener( 'keydown', onKeyDown );
+                document.removeEventListener( 'keyup', onKeyUp );
+                document.removeEventListener( 'mousedown', handleMiddleClick);
+                setTimeout(() => {
+                    skySphereMesh.material.map = skyBoxTextures[newTextureName];
+                    skySphereMesh.material.needsUpdate = true;
+                }, 100);
+                document.addEventListener( 'keydown', onKeyDown );
+                document.addEventListener( 'keyup', onKeyUp );
+                document.addEventListener( 'mousedown', handleMiddleClick);
+                controls.connect(canvas);
+                controls.object.position.copy(camera.position);
+                console.log('Skybox changed to:', newTextureName);
+            }
+        }
+    };
+
+    // Separate function to set up the GUI control after the skybox is loaded
+    function setupSkyboxGUI() {
+        const skyBoxFolder = gui.addFolder('SkyBox');
+        
+        // Create the dropdown control
+        const skyboxDropdown = skyBoxFolder.add(skyboxController, 'currentSkybox', ['pinkSky', 'blueSky'])
+            .name('Select Skybox');
+        
+        // Set up the onChange listener to actually change the skybox
+        skyboxDropdown.onChange(function(value) {
+            skyboxController.changeSkyBox(value);
+        });
+        
+        skyBoxFolder.open(); // Optional: opens the folder by default
     }
 
     // Set up fog with GUI controls
