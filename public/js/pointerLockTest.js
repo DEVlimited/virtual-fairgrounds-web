@@ -775,7 +775,9 @@ function main() {
         let loader = new THREE.TextureLoader();
         skyBoxTextures = {
             pinkSky: loader.load('../public/skybox/pink_sunset.png'),
-            blueSky: loader.load('../public/skybox/Panorama_Sky_02-512x512.png')
+            blueSky: loader.load('../public/skybox/blue_sky.png'),
+            nightSky: loader.load('../public/skybox/night_sky.png'),
+            okcSunset: loader.load('../public/skybox/oklahoma_sunset.png')
         }
         const imagePath = '../public/skybox/pink_sunset.png';
         loader.load(imagePath, (panoramaTexture) => {
@@ -828,7 +830,7 @@ function main() {
         const skyBoxFolder = gui.addFolder('SkyBox');
         
         // Create the dropdown control
-        const skyboxDropdown = skyBoxFolder.add(skyboxController, 'currentSkybox', ['pinkSky', 'blueSky'])
+        const skyboxDropdown = skyBoxFolder.add(skyboxController, 'currentSkybox', ['pinkSky', 'blueSky', 'nightSky', 'okcSunset'])
             .name('Select Skybox');
         
         // Set up the onChange listener to actually change the skybox
