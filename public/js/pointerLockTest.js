@@ -549,6 +549,8 @@ function main() {
     cameraFolder.open();
 
     const controls = new PointerLockControls(camera, canvas);
+    controls.maxPolarAngle = (120 * Math.PI) / 180;
+    controls.minPolarAngle = (60 * Math.PI) / 180;
 
     instructions.addEventListener( 'click', function () {
         controls.lock();
