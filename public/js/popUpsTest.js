@@ -147,6 +147,7 @@ class MinMaxGUIHelper {
     }
 }
 
+//This is the color gui for the directional light
 class ColorGUIHelper {
     constructor(object, prop) {
         this.object = object;
@@ -160,6 +161,7 @@ class ColorGUIHelper {
     }
 }
 
+//This is the gui for fog to control legit everything
 class FogGUIHelper {
     constructor(fog, camera) {
         this.fog = fog;
@@ -193,62 +195,126 @@ class FogGUIHelper {
     }
 }
 
-class popUpSphere {
-    constructor(posX, posY, posZ, radius, width, height) {
+//The object for the popUp mainly its detection circle
+class popUpCircle {
+    constructor(posX, posY, posZ, radius) {
 
         this.cameraInside = false;
 
         this.position = new THREE.Vector3(posX, posY, posZ);
 
-        this.geometryParams = {
-            r: radius,
-            w: width,
-            h: height
-        };
+        this.geometryRadius = radius;
 
-        this.sphereObject = null;
+        this.circleObject = null;
     }
 
     createSphereRadius(scene) {
-        if(this.sphereObject) scene.remove(this.sphereObject);
+        if(this.circleObject) scene.remove(this.circleObject);
 
         const newSphereMaterial = new THREE.MeshBasicMaterial({
-            color: 0x00ff00,
+            color: 0x00C6FF,
             opacity: 0.5,
             transparent: true,
             wireframe: true,
         });
 
-        const geometry = new THREE.SphereGeometry(
-            this.geometryParams.r, 
-            this.geometryParams.w, 
-            this.geometryParams.h
-        );
+        const geometry = new THREE.CircleGeometry(this.geometryRadius);
 
-        this.sphereObject = new THREE.Mesh(geometry, newSphereMaterial);
-        this.sphereObject.position.set(this.position.x, this.position.y, this.position.z);
+        this.circleObject = new THREE.Mesh(geometry, newSphereMaterial);
+        this.circleObject.position.set(this.position.x, this.position.y, this.position.z);
+        this.circleObject.rotation.x = (90 * Math.PI) / 180;
 
-        scene.add(this.sphereObject);
-        return(this.sphereObject);
+        scene.add(this.circleObject);
+        return(this.circleObject);
     }
 
     checkForIntersection(camera) {
         const cameraPosition = new THREE.Vector3();
         camera.getWorldPosition(cameraPosition);
 
-        const sphereCenter = this.sphereObject.position.clone();
+        const sphereCenter = this.circleObject.position.clone();
 
         const distance = cameraPosition.distanceTo(sphereCenter);
 
-        if (distance < this.geometryParams.r) {
-            console.log('Camera inside sphere');
+        if (distance < this.geometryRadius) {
             this.cameraInside = true;
-        } else if ( distance >= this.geometryParams.r) {
+        } else if ( distance >= this.geometryRadius) {
             this.cameraInside = false;
         }
     }
 }
 
+// Pop Up Object functionality
+const PopupManager = {
+
+    overlay: document.getElementById('popup'),
+    container: document.querySelector('.popup-container'),
+    title: document.getElementById('popup-title'),
+    content: document.getElementById('popup-content'),
+
+    popUpActive: false,
+
+    // This just unhides the pop up nothing special
+    show: function(title = 'Popup', content = '') {
+
+        this.title.textContent = title;
+
+        this.content.innerHTML = content;
+
+        this.overlay.style.display = 'block';
+        this.overlay.classList.add('show');
+        this.container.classList.add('show');
+
+        document.body.style.overflow = 'hidden';
+        document.body.style.cursor = 'default';
+    },
+
+    // self explanatory...
+    hide: function() {
+
+        this.overlay.classList.remove('show');
+        this.container.classList.remove('show');
+
+        setTimeout(() => {
+            this.overlay.style.display = 'none';
+        }, 300);
+
+        document.body.style.overflow = 'auto';
+
+        document.body.style.cursor = 'none';
+    },
+
+    // This basically is where it defines if it is a image or text pop up. Can be edited to do anything tbh
+    generatePopup: function(title, config) {
+        let content = '';
+
+        if (config.text) {
+            content += `<p>${config.text}</p>`;
+        }
+
+        if (config.image) {
+            content += `<img src="${config.image.src}" alt="${config.image.alt || ''}">`;
+            if (config.image.caption) {
+                content += `<p><em>${config.image.caption}</em></p>`;
+            }
+        }
+
+        if (config.html) {
+            content += config.html;
+        }
+        
+        this.show(title, content);
+    }
+};
+
+function closePopup() {
+    setTimeout(() => {
+        PopupManager.hide();
+    }, 300);
+    PopupManager.popUpActive = false;
+}
+
+//This is the barrier box object
 class boundaryBox {
     constructor(minX, maxX, minY, maxY, minZ, maxZ) {
         this.min = new THREE.Vector3(minX, minY, minZ);
@@ -481,6 +547,38 @@ function setupCameraBoundaries(scene, camera, controls) {
   return boundary;
 }
 
+const informationArray = [
+    // This is the sample for the popUps, you can use these however you want. 
+    // I am hoping maybe in the future I could setup like a gallery type popup
+    // that has multiple images that you can scroll through or maybe
+    // a fully custom popup that can be designed anyway you want 
+    // text: '',
+    // image: {
+    //     src: '',
+    //     alt: '',
+    //     caption: ''
+    // },
+    // html: 
+    {
+        text: 'Hopefully I can get this to work',
+        image: {
+            src: 'https://picsum.photos/350/200',
+            alt: 'Filler Image',
+            caption: 'Cool images'
+        },
+        html: '<p><strong>This is a test!</strong></p>'
+    },
+    {
+        text: 'Bill\'s Cleaners is cool',
+        image: {
+            src: 'https://picsum.photos/350/200',
+            alt: 'Filler Image',
+            caption: 'Cool images'
+        },
+        html: '<p><strong>Heard he was good at bowling!</strong></p>'
+    }
+]
+
 function main() {
     // Set up the custom shader chunks for the advanced fog effect
     THREE.ShaderChunk.fog_fragment = `
@@ -517,20 +615,20 @@ function main() {
       #endif
     #endif`;
     
-    //CHATGPT SAVING THE DAY!!!!!
-    //I couldnt figure out what the problem was it kept saying shader issue
-    //so I looked and looked and looked through my code and the shaders were being properly
-    //loaded and setup so I was so confused what the problem was. 
-    //so I finally decided im going to ask AI. Claude couldnt figure it out,
-    //but my good old homie ChatGPT somehow figured out that i needed to initialize the worldPosition variable in
-    //the fog vertex using vec4. I was shocked and honestly relieved. 
+    // CHATGPT SAVING THE DAY!!!!!
+    // I couldnt figure out what the problem was it kept saying shader issue
+    // so I looked and looked and looked through my code and the shaders were being properly
+    // loaded and setup so I was so confused what the problem was. 
+    // so I finally decided im going to ask AI. Claude couldnt figure it out,
+    // but my good old homie ChatGPT somehow figured out that i needed to initialize the worldPosition variable in
+    // the fog vertex using vec4. I was shocked and honestly relieved. 
 
-    //Prompt to AI -
-    //I am currently trying to implement a split view camera into my program as a 
+    // Prompt to AI -
+    // I am currently trying to implement a split view camera into my program as a 
     // test to configure the camera properly. Everything was working fine until I started implementing the camera code. 
-    //I am getting this error message and I need you to see if you can configure what it is meaning,
-    //also see if you can find the solution if possible.
-    //-Error message goes here but it is way to big-
+    // I am getting this error message and I need you to see if you can configure what it is meaning,
+    // also see if you can find the solution if possible.
+    // -Error message goes here but it is way to big-
     THREE.ShaderChunk.fog_vertex = `
     #ifdef USE_FOG
       vec4 worldPosition = modelMatrix * vec4(position, 1.0);
@@ -589,66 +687,6 @@ function main() {
 	const scene = new THREE.Scene();
 
     const gui = new GUI();
-
-    // Pop Up Object functionality
-    const PopupManager = {
-
-        overlay: document.getElementById('popup'),
-        container: document.querySelector('.popup-container'),
-        title: document.getElementById('popup-title'),
-        content: document.getElementById('popup-content'),
-
-        // This just unhides the pop up nothing special
-        show: function(title = 'Popup', content = '') {
-
-            this.title.textContent = title;
-
-            this.content.innerHTML = content;
-
-            this.overlay.style.display = 'block';
-            this.overlay.classList.add('show');
-            this.container.classList.add('show');
-
-            document.body.style.overflow = 'hidden';
-        },
-
-        // self explanatory...
-        hide: function() {
-
-            this.overlay.classList.remove('show');
-            this.container.classList.remove('show');
-
-            setTimeout(() => {
-                this.overlay.style.display = 'none';
-            }, 300);
-
-            document.body.style.overflow = 'auto';
-        },
-
-        // This basically is where it defines if it is a image or text pop up. Can be edited to do anything tbh
-        showText: function(title, text) {
-            this.show(title, `<p>${text}</p>`);
-        },
-
-        showImage: function(title, imageSrc, altText = '', caption = '') {
-            let content = `<img src="${imageSrc}" alt"${altText}">`;
-            if (caption) {
-                content += `<p><em>${caption}</em></p>`;
-            }
-            this.show(title, content);
-        }
-    };
-
-    function closePopup() {
-        PopupManager.hide();
-    }
-
-
-    document.getElementById('popup').addEventListener('click', function(e) {
-        if (e.target === this) {
-            closePopup();
-        }
-    });
     
     // Camera controls
     var cameraResetButton = {
@@ -671,7 +709,7 @@ function main() {
     controls.minPolarAngle = (60 * Math.PI) / 180;
 
     instructions.addEventListener( 'click', function () {
-        if (!isGUIMode) {
+        if (!isGUIMode && !PopupManager.popUpActive) {
             controls.lock();
             instructionsActive = false;
             instructions.style.display = 'none';
@@ -679,13 +717,31 @@ function main() {
         }
     });
 
+    document.getElementById('popup').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closePopup();
+            controls.lock();
+            PopupManager.popUpActive = false;
+        }
+    });
+
+    document.getElementById('popup-close-btn').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closePopup();
+            controls.lock();
+            PopupManager.popUpActive = false;
+        }
+    });
+
     controls.addEventListener( 'unlock', function () {
         controls.unlock();
         console.log('Controls have been unlocked');
-        if(!isGUIMode) {
+        if(!isGUIMode && !PopupManager.popUpActive ) {
             instructionsActive = true;
             instructions.style.display = '';
             blocker.style.display = '';
+            document.getElementById('interactionBlocker').style.display = 'none';
+            document.getElementById('interactDesc').style.display = 'none';
         }
     });
 
@@ -698,13 +754,13 @@ function main() {
     function toggleGUIMode() {
         isGUIMode = !isGUIMode;
 
-        if ( isGUIMode && !instructionsActive) {
+        if ( isGUIMode && !instructionsActive && !PopupManager.popUpActive ) {
             if ( controls.isLocked ) {
                 controls.unlock();
             }
             console.log('GUI Mode: Activated - Mouse is now free for GUI interaction');
             updateGUIVisibility();
-        } else if(!instructionsActive) {
+        } else if(!instructionsActive && !PopupManager.popUpActive ) {
             controls.lock();
             console.log('GUID Mode: Deactivated - Camera Controls active');
             updateGUIVisibility();
@@ -717,6 +773,8 @@ function main() {
             if (isGUIMode) {
                 element.style.pointerEvents = 'auto';
                 element.style.opacity = '1';
+                document.getElementById('interactionBlocker').style.display = 'none';
+                document.getElementById('interactDesc').style.display = 'none';
             } else {
                 element.style.pointerEvents = 'none';
                 element.style.opacity = '0.3';
@@ -750,8 +808,10 @@ function main() {
             case 'KeyD':
                 moveRight = true;
                 break;
-            
-            
+        }
+    };
+    const rotateTheCamera = function ( event ) {
+        switch (event.code) {
             case isGUIMode && 'KeyQ':
                 cameraEuler.setFromQuaternion(camera.quaternion);
                 cameraEuler.y -= -0.01 * 0.5 * 2;
@@ -764,7 +824,7 @@ function main() {
                 camera.quaternion.setFromEuler(cameraEuler);
                 break;
         }
-    };
+    }
     const onKeyUp = function ( event ) {
 
         switch ( event.code ) {
@@ -798,6 +858,7 @@ function main() {
     };
     document.addEventListener( 'keydown', onKeyDown );
     document.addEventListener( 'keyup', onKeyUp );
+    document.addEventListener( 'keydown', rotateTheCamera);
     document.addEventListener( 'mousedown', handleMiddleClick);
 
     // Store shaders that need to be updated with fogTime
@@ -857,9 +918,58 @@ function main() {
         boundaryFolder.open();
     }
 
-    //Theater Sphere Intersection popup
-    const theaterSphere = new popUpSphere(-34, 32, -7, 5, 8, 4);
+    // Intersection pop Circles!
+    const popCirclesGUI = gui.addFolder('Popup Circles');
+    const theaterGUI = popCirclesGUI.addFolder('Theater Circle');
+    const cleanersGUI = popCirclesGUI.addFolder('Bills Cleaners');
+
+    // Theater circle Intersection popup
+    const theaterSphere = new popUpCircle(-32, 31, 7, 8);
     theaterSphere.createSphereRadius(scene);
+    theaterGUI.add(theaterSphere.position, 'x', -50, 50, 1).onChange((value) => {
+        if ( theaterSphere.circleObject) {
+            theaterSphere.circleObject.position.x = value;
+        }
+    });
+    theaterGUI.add(theaterSphere.position, 'z', -20, 20, 1).onChange((value) => {
+        if ( theaterSphere.circleObject) {
+            theaterSphere.circleObject.position.z = value;
+        }
+    });
+    // Bills Cleaners
+    const cleanersSphere = new popUpCircle(-40, 31, 20, 8);
+    cleanersSphere.createSphereRadius(scene);
+    cleanersGUI.add(cleanersSphere.position, 'x', -50, 50, 1).onChange((value) => {
+        if ( cleanersSphere.circleObject) {
+            cleanersSphere.circleObject.position.x = value;
+        }
+    });
+    cleanersGUI.add(cleanersSphere.position, 'z', -20, 20, 1).onChange((value) => {
+        if ( cleanersSphere.circleObject) {
+            cleanersSphere.circleObject.position.z = value;
+        }
+    });
+
+    popCirclesGUI.open();
+
+    const interactListener = function ( event ) {
+        if (isGUIMode || instructionsActive) return;
+
+        switch (event.code) {
+            case 'KeyF':
+                console.log('Interacted!');
+                if (theaterSphere.cameraInside) {
+                    PopupManager.popUpActive  = true;
+                    PopupManager.generatePopup('Theater', informationArray[0]);
+                    controls.unlock();
+                    event.preventDefault();
+                    break;
+                } else {
+                    break;
+                }  
+        }
+    }
+    document.addEventListener( 'keydown', interactListener);
 
     // Add hemisphere light
     {
@@ -931,6 +1041,8 @@ function main() {
             if (skySphereMesh && skyBoxTextures[newTextureName]) {
                 controls.disconnect();
                 document.removeEventListener( 'keydown', onKeyDown );
+                document.removeEventListener( 'keydown', interactListener );
+                document.removeEventListener( 'keydown', rotateTheCamera );
                 document.removeEventListener( 'keyup', onKeyUp );
                 document.removeEventListener( 'mousedown', handleMiddleClick);
                 setTimeout(() => {
@@ -938,6 +1050,8 @@ function main() {
                     skySphereMesh.material.needsUpdate = true;
                 }, 100);
                 document.addEventListener( 'keydown', onKeyDown );
+                document.addEventListener( 'keydown', interactListener );
+                document.addEventListener( 'keydown', rotateTheCamera );
                 document.addEventListener( 'keyup', onKeyUp );
                 document.addEventListener( 'mousedown', handleMiddleClick);
                 controls.connect(canvas);
@@ -1054,14 +1168,18 @@ function main() {
 
         const pointLockTime = performance.now();
 
-        if ( controls.isLocked === true && !theaterSphere.cameraInside) {
+        if ( controls.isLocked === true && !isGUIMode) {
             theaterSphere.checkForIntersection(camera);
-            // if ( theaterSphere.cameraInside) {
-            //     PopupManager.showText()
-            // }
+            if ( theaterSphere.cameraInside) {
+                document.getElementById('interactionBlocker').style.display = 'block';
+                document.getElementById('interactDesc').style.display = 'flex';
+            } else if (document.getElementById('interactionBlocker').style.display === 'block' && !theaterSphere.cameraInside) {
+                document.getElementById('interactionBlocker').style.display = 'none';
+                document.getElementById('interactDesc').style.display = 'none';
+            }
         }
 
-        if ( controls.isLocked === true || isGUIMode ){
+        if ( controls.isLocked === true || isGUIMode  && !PopupManager.popUpActive ){
 
             const delta = ( time - prevTime ) / 1000;
 
