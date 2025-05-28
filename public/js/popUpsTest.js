@@ -576,6 +576,24 @@ const informationArray = [
             caption: 'Cool images'
         },
         html: '<p><strong>Heard he was good at bowling!</strong></p>'
+    },
+    {
+        text: 'Pool, Beer, and Dominos!',
+        image: {
+            src: 'https://picsum.photos/350/200',
+            alt: 'Filler Image',
+            caption: 'Cool images'
+        },
+        html: '<p><strong>The fan was a pain I heard</strong></p>'
+    },
+    {
+        text: 'Records!',
+        image: {
+            src: 'https://picsum.photos/350/200',
+            alt: 'Filler Image',
+            caption: 'Cool images'
+        },
+        html: '<p><strong>Lots of goooood music here</strong></p>'
     }
 ]
 
@@ -921,7 +939,9 @@ function main() {
     // Intersection pop Circles!
     const popCirclesGUI = gui.addFolder('Popup Circles');
     const theaterGUI = popCirclesGUI.addFolder('Theater Circle');
-    const cleanersGUI = popCirclesGUI.addFolder('Bills Cleaners');
+    const cleanersGUI = popCirclesGUI.addFolder('Bills Circle');
+    const dominosGUI = popCirclesGUI.addFolder('Dominos Circle');
+    const recordsGUI = popCirclesGUI.addFolder('Records Circle')
 
     // Theater circle Intersection popup
     const theaterSphere = new popUpCircle(-32, 31, 7, 8);
@@ -937,16 +957,42 @@ function main() {
         }
     });
     // Bills Cleaners
-    const cleanersSphere = new popUpCircle(-40, 31, 20, 8);
+    const cleanersSphere = new popUpCircle(-35, 31, 32, 4);
     cleanersSphere.createSphereRadius(scene);
-    cleanersGUI.add(cleanersSphere.position, 'x', -50, 50, 1).onChange((value) => {
+    cleanersGUI.add(cleanersSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
         if ( cleanersSphere.circleObject) {
             cleanersSphere.circleObject.position.x = value;
         }
     });
-    cleanersGUI.add(cleanersSphere.position, 'z', -20, 20, 1).onChange((value) => {
+    cleanersGUI.add(cleanersSphere.position, 'z', -20, 60, 0.1).onChange((value) => {
         if ( cleanersSphere.circleObject) {
             cleanersSphere.circleObject.position.z = value;
+        }
+    });
+    // Dominos place with THE FAN
+    const dominosSphere = new popUpCircle(-35.2, 31, 57.8, 3);
+    dominosSphere.createSphereRadius(scene);
+    dominosGUI.add(dominosSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
+        if ( dominosSphere.circleObject) {
+            dominosSphere.circleObject.position.x = value;
+        }
+    });
+    dominosGUI.add(dominosSphere.position, 'z', -20, 60, 0.1).onChange((value) => {
+        if ( dominosSphere.circleObject) {
+            dominosSphere.circleObject.position.z = value;
+        }
+    });
+    // Records Shop, good music bruh
+    const recordsSphere = new popUpCircle(-36, 31, 63, 2);
+    recordsSphere.createSphereRadius(scene);
+    recordsGUI.add(recordsSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
+        if ( recordsSphere.circleObject) {
+            recordsSphere.circleObject.position.x = value;
+        }
+    });
+    recordsGUI.add(recordsSphere.position, 'z', -20, 100, 0.1).onChange((value) => {
+        if ( recordsSphere.circleObject) {
+            recordsSphere.circleObject.position.z = value;
         }
     });
 
@@ -964,8 +1010,26 @@ function main() {
                     controls.unlock();
                     event.preventDefault();
                     break;
-                } else {
+                }else if (cleanersSphere.cameraInside) {
+                    PopupManager.popUpActive  = true;
+                    PopupManager.generatePopup('Bills Cleaners', informationArray[1]);
+                    controls.unlock();
+                    event.preventDefault();
                     break;
+                }else if (dominosSphere.cameraInside) {
+                    PopupManager.popUpActive  = true;
+                    PopupManager.generatePopup('Pool Dominos', informationArray[2]);
+                    controls.unlock();
+                    event.preventDefault();
+                    break;
+                }else if (recordsSphere.cameraInside) {
+                    PopupManager.popUpActive  = true;
+                    PopupManager.generatePopup('Record Shop', informationArray[3]);
+                    controls.unlock();
+                    event.preventDefault();
+                    break;
+                } else {
+                    break; 
                 }  
         }
     }
@@ -1170,10 +1234,14 @@ function main() {
 
         if ( controls.isLocked === true && !isGUIMode) {
             theaterSphere.checkForIntersection(camera);
-            if ( theaterSphere.cameraInside) {
+            cleanersSphere.checkForIntersection(camera);
+            dominosSphere.checkForIntersection(camera);
+            recordsSphere.checkForIntersection(camera);
+            let theCameraInside = (theaterSphere.cameraInside || cleanersSphere.cameraInside || dominosSphere.cameraInside || recordsSphere.cameraInside) ? true : false;
+            if (theCameraInside) {
                 document.getElementById('interactionBlocker').style.display = 'block';
                 document.getElementById('interactDesc').style.display = 'flex';
-            } else if (document.getElementById('interactionBlocker').style.display === 'block' && !theaterSphere.cameraInside) {
+            } else if (document.getElementById('interactionBlocker').style.display === 'block' && !theCameraInside) {
                 document.getElementById('interactionBlocker').style.display = 'none';
                 document.getElementById('interactDesc').style.display = 'none';
             }
