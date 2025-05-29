@@ -588,9 +588,9 @@ function main() {
     // Load the GLTF model
     {
         const gltfLoader = new GLTFLoader();
-        gltfLoader.load(baseURL + 'fairgrounds.gltf', (gltf) => {
+        gltfLoader.load(baseURL + 'fairgrounds.glb', (glb) => {
             loadingDiv.style.display = 'none';
-            const root = gltf.scene;
+            const root = glb.scene;
             
             // Apply shader modification to all meshes in the scene
 			// Also wanted to note this was done by ChatGPT as well. It was part of the problem
