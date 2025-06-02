@@ -170,6 +170,7 @@ function setupCustomFogShaders() {
     #endif`;
 }
 
+
 class SafeTextureLODManager {
     constructor() {
         this.processedTextures = new Set();
@@ -192,8 +193,8 @@ class SafeTextureLODManager {
                 const materials = Array.isArray(child.material) ? child.material : [child.material];
                 
                 materials.forEach(material => {
-                    // Only process standard materials to avoid issues with special materials
-                    if (material.isMeshStandardMaterial || material.isMeshBasicMaterial) {
+                    // Process ALL material types that support textures
+                    if (this.isSupportedMaterial(material)) {
                         this.optimizeMaterial(material, maxTextureSize, compressionQuality);
                     }
                 });
@@ -203,8 +204,27 @@ class SafeTextureLODManager {
         console.log('Texture processing complete');
     }
 
+    // Check if material type supports texture optimization
+    isSupportedMaterial(material) {
+        return (
+            material.isMeshStandardMaterial || 
+            material.isMeshBasicMaterial || 
+            material.isMeshPhysicalMaterial ||
+            material.isMeshLambertMaterial ||
+            material.isMeshPhongMaterial
+        );
+    }
+
     optimizeMaterial(material, maxSize, quality) {
-        const textureProperties = ['map', 'normalMap', 'roughnessMap', 'metalnessMap'];
+        // Extended list of texture properties for different material types
+        const textureProperties = [
+            'map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap',
+            'bumpMap', 'displacementMap', 'aoMap', 'lightMap', 'envMap',
+            // MeshPhysicalMaterial specific properties
+            'clearcoatMap', 'clearcoatNormalMap', 'clearcoatRoughnessMap',
+            'transmissionMap', 'thicknessMap', 'sheenColorMap', 'sheenRoughnessMap',
+            'specularIntensityMap', 'specularColorMap', 'iridescenceMap', 'iridescenceThicknessMap'
+        ];
         
         textureProperties.forEach(prop => {
             if (material[prop] && !this.processedTextures.has(material[prop])) {
@@ -241,11 +261,9 @@ class SafeTextureLODManager {
             ctx.drawImage(texture.image, 0, 0, canvas.width, canvas.height);
             
             const optimizedTexture = new THREE.CanvasTexture(canvas);
-            optimizedTexture.wrapS = texture.wrapS;
-            optimizedTexture.wrapT = texture.wrapT;
-            optimizedTexture.minFilter = texture.minFilter;
-            optimizedTexture.magFilter = texture.magFilter;
-            optimizedTexture.colorSpace = texture.colorSpace;
+            
+            // Copy all texture properties to maintain compatibility
+            this.copyTextureProperties(texture, optimizedTexture);
             
             return optimizedTexture;
         } catch (error) {
@@ -253,25 +271,119 @@ class SafeTextureLODManager {
             return texture;
         }
     }
+
+    copyTextureProperties(source, target) {
+        const propertiesToCopy = [
+            'wrapS', 'wrapT', 'minFilter', 'magFilter', 'colorSpace',
+            'flipY', 'premultiplyAlpha', 'unpackAlignment', 'encoding',
+            'generateMipmaps', 'anisotropy', 'offset', 'repeat', 'center', 'rotation'
+        ];
+
+        propertiesToCopy.forEach(prop => {
+            if (source[prop] !== undefined) {
+                try {
+                    target[prop] = source[prop];
+                } catch (error) {
+                    console.warn(`Failed to copy texture property ${prop}:`, error);
+                }
+            }
+        });
+
+        // Handle Vector2 properties separately
+        if (source.offset) target.offset.copy(source.offset);
+        if (source.repeat) target.repeat.copy(source.repeat);
+        if (source.center) target.center.copy(source.center);
+    }
 }
 
 function setupOptimizedTextureSystem(gltfScene, scene, camera) {
     const safeTextureLOD = new SafeTextureLODManager();
     
+    // Store references for distance-based optimization
+    const meshes = [];
+    const originalTextures = new Map();
+    const lowResTextures = new Map();
+    
+    // Collect all meshes and store texture references
+    gltfScene.traverse((child) => {
+        if (child.isMesh && child.material) {
+            meshes.push({ mesh: child, position: child.getWorldPosition(new THREE.Vector3()) });
+            
+            const materials = Array.isArray(child.material) ? child.material : [child.material];
+            materials.forEach(material => {
+                if (safeTextureLOD.isSupportedMaterial(material)) {
+                    // Store original textures
+                    const textureProps = ['map', 'normalMap', 'roughnessMap', 'metalnessMap'];
+                    textureProps.forEach(prop => {
+                        if (material[prop] && !originalTextures.has(material[prop])) {
+                            originalTextures.set(material[prop], material[prop]);
+                            // Create low-res version
+                            const lowRes = safeTextureLOD.optimizeTexture(material[prop], 256, 0.6);
+                            lowResTextures.set(material[prop], lowRes);
+                        }
+                    });
+                }
+            });
+        }
+    });
+    
     // Process textures with error handling
     safeTextureLOD.processGLTFTextures(gltfScene, {
         enableLODs: true,
-        maxTextureSize: 1024, // Reduce max texture size to prevent memory issues
+        maxTextureSize: 1024,
         compressionQuality: 0.8
     }).catch(error => {
         console.error('Texture processing error:', error);
     });
 
-    // Return a simple update function
+    // Return distance-based quality update function
     return function updateTextureQuality() {
-        // Placeholder for future distance-based optimizations
-        // Currently just ensuring textures are loaded properly
+        const cameraPosition = camera.position;
+        const HIGH_QUALITY_DISTANCE = 50;
+        const LOW_QUALITY_DISTANCE = 150;
+        
+        meshes.forEach(({ mesh }) => {
+            try {
+                // Get current world position
+                const meshPosition = mesh.getWorldPosition(new THREE.Vector3());
+                const distance = cameraPosition.distanceTo(meshPosition);
+                
+                const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+                materials.forEach(material => {
+                    if (safeTextureLOD.isSupportedMaterial(material)) {
+                        const useHighRes = distance < HIGH_QUALITY_DISTANCE;
+                        const useLowRes = distance > LOW_QUALITY_DISTANCE;
+                        
+                        const textureProps = ['map', 'normalMap', 'roughnessMap', 'metalnessMap'];
+                        textureProps.forEach(prop => {
+                            if (material[prop]) {
+                                const original = originalTextures.get(material[prop]);
+                                const lowRes = lowResTextures.get(material[prop]);
+                                
+                                if (useHighRes && original) {
+                                    material[prop] = original;
+                                } else if (useLowRes && lowRes) {
+                                    material[prop] = lowRes;
+                                }
+                            }
+                        });
+                    }
+                });
+            } catch (error) {
+                console.warn('Error updating mesh texture quality:', error);
+            }
+        });
     };
+}
+
+function isFogCompatibleMaterial(material) {
+    return (
+        material.isMeshStandardMaterial ||
+        material.isMeshBasicMaterial ||
+        material.isMeshPhysicalMaterial ||
+        material.isMeshLambertMaterial ||
+        material.isMeshPhongMaterial
+    );
 }
 
 // This class helps with updating the projection matrix when changing camera near/far values
@@ -702,20 +814,20 @@ function main() {
                     // Use the safer texture optimization system
                     const updateTextureQuality = setupOptimizedTextureSystem(root, scene, camera);
                     window.updateTextureQuality = updateTextureQuality;
-                    
+
                     // Apply shader modifications more safely
                     root.traverse((child) => {
                         if (child.isMesh && child.material) {
                             try {
                                 if (Array.isArray(child.material)) {
                                     child.material.forEach(mat => {
-                                        // Only apply fog shader to compatible materials
-                                        if (mat.isMeshStandardMaterial || mat.isMeshBasicMaterial) {
+                                        // Use the new compatibility check function
+                                        if (isFogCompatibleMaterial(mat)) {
                                             mat.onBeforeCompile = ModifyShader;
                                         }
                                     });
                                 } else {
-                                    if (child.material.isMeshStandardMaterial || child.material.isMeshBasicMaterial) {
+                                    if (isFogCompatibleMaterial(child.material)) {
                                         child.material.onBeforeCompile = ModifyShader;
                                     }
                                 }
