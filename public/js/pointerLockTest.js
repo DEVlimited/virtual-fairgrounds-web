@@ -121,6 +121,159 @@ float FBM(vec3 p) {
 }
 `;
 
+// Fixed shader chunks that avoid variable redefinition conflicts
+function setupCustomFogShaders() {
+    // Use a unique variable name to avoid conflicts
+    THREE.ShaderChunk.fog_pars_vertex = `
+    #ifdef USE_FOG
+      varying vec3 vFogWorldPosition;
+    #endif`;
+
+    THREE.ShaderChunk.fog_vertex = `
+    #ifdef USE_FOG
+      vec4 fogWorldPosition = modelMatrix * vec4(position, 1.0);
+      vFogWorldPosition = fogWorldPosition.xyz;
+    #endif`;
+
+    THREE.ShaderChunk.fog_pars_fragment = _NOISE_GLSL + `
+    #ifdef USE_FOG
+      uniform float fogTime;
+      uniform vec3 fogColor;
+      varying vec3 vFogWorldPosition;
+      #ifdef FOG_EXP2
+        uniform float fogDensity;
+      #else
+        uniform float fogNear;
+        uniform float fogFar;
+      #endif
+    #endif`;
+
+    THREE.ShaderChunk.fog_fragment = `
+    #ifdef USE_FOG
+      vec3 fogOrigin = cameraPosition;
+      vec3 fogDirection = normalize(vFogWorldPosition - fogOrigin);
+      float fogDepth = distance(vFogWorldPosition, fogOrigin);
+
+      // f(p) = fbm( p + fbm( p ) )
+      vec3 noiseSampleCoord = vFogWorldPosition * 0.00025 + vec3(
+          0.0, 0.0, fogTime * 0.025);
+      float noiseSample = FBM(noiseSampleCoord + FBM(noiseSampleCoord)) * 0.5 + 0.5;
+      fogDepth *= mix(noiseSample, 1.0, saturate((fogDepth - 5000.0) / 5000.0));
+      fogDepth *= fogDepth;
+
+      float heightFactor = 0.05;
+      float fogFactor = heightFactor * exp(-fogOrigin.y * fogDensity) * (
+          1.0 - exp(-fogDepth * fogDirection.y * fogDensity)) / fogDirection.y;
+      fogFactor = saturate(fogFactor);
+
+      gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, fogFactor );
+    #endif`;
+}
+
+class SafeTextureLODManager {
+    constructor() {
+        this.processedTextures = new Set();
+        this.currentLOD = 'high';
+    }
+
+    // More conservative texture processing
+    async processGLTFTextures(gltfScene, options = {}) {
+        const { 
+            enableLODs = true, 
+            maxTextureSize = 1024,
+            compressionQuality = 0.8 
+        } = options;
+        
+        console.log('Processing GLTF textures...');
+        
+        // Process materials more safely
+        gltfScene.traverse((child) => {
+            if (child.isMesh && child.material) {
+                const materials = Array.isArray(child.material) ? child.material : [child.material];
+                
+                materials.forEach(material => {
+                    // Only process standard materials to avoid issues with special materials
+                    if (material.isMeshStandardMaterial || material.isMeshBasicMaterial) {
+                        this.optimizeMaterial(material, maxTextureSize, compressionQuality);
+                    }
+                });
+            }
+        });
+        
+        console.log('Texture processing complete');
+    }
+
+    optimizeMaterial(material, maxSize, quality) {
+        const textureProperties = ['map', 'normalMap', 'roughnessMap', 'metalnessMap'];
+        
+        textureProperties.forEach(prop => {
+            if (material[prop] && !this.processedTextures.has(material[prop])) {
+                try {
+                    material[prop] = this.optimizeTexture(material[prop], maxSize, quality);
+                    this.processedTextures.add(material[prop]);
+                } catch (error) {
+                    console.warn(`Failed to optimize ${prop} texture:`, error);
+                }
+            }
+        });
+    }
+
+    optimizeTexture(texture, maxSize, quality) {
+        if (!texture.image || !texture.image.width) {
+            return texture;
+        }
+
+        const { width, height } = texture.image;
+        
+        // Only resize if texture is larger than maxSize
+        if (width <= maxSize && height <= maxSize) {
+            return texture;
+        }
+
+        try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            const scale = Math.min(maxSize / width, maxSize / height);
+            canvas.width = Math.floor(width * scale);
+            canvas.height = Math.floor(height * scale);
+            
+            ctx.drawImage(texture.image, 0, 0, canvas.width, canvas.height);
+            
+            const optimizedTexture = new THREE.CanvasTexture(canvas);
+            optimizedTexture.wrapS = texture.wrapS;
+            optimizedTexture.wrapT = texture.wrapT;
+            optimizedTexture.minFilter = texture.minFilter;
+            optimizedTexture.magFilter = texture.magFilter;
+            optimizedTexture.colorSpace = texture.colorSpace;
+            
+            return optimizedTexture;
+        } catch (error) {
+            console.warn('Texture optimization failed, using original:', error);
+            return texture;
+        }
+    }
+}
+
+function setupOptimizedTextureSystem(gltfScene, scene, camera) {
+    const safeTextureLOD = new SafeTextureLODManager();
+    
+    // Process textures with error handling
+    safeTextureLOD.processGLTFTextures(gltfScene, {
+        enableLODs: true,
+        maxTextureSize: 1024, // Reduce max texture size to prevent memory issues
+        compressionQuality: 0.8
+    }).catch(error => {
+        console.error('Texture processing error:', error);
+    });
+
+    // Return a simple update function
+    return function updateTextureQuality() {
+        // Placeholder for future distance-based optimizations
+        // Currently just ensuring textures are loaded properly
+    };
+}
+
 // This class helps with updating the projection matrix when changing camera near/far values
 class MinMaxGUIHelper {
     constructor(obj, minProp, maxProp, minDif) {
@@ -311,66 +464,9 @@ function setupCameraBoundaries(scene, camera, controls) {
 }
 
 function main() {
-    // Set up the custom shader chunks for the advanced fog effect
-    THREE.ShaderChunk.fog_fragment = `
-    #ifdef USE_FOG
-      vec3 fogOrigin = cameraPosition;
-      vec3 fogDirection = normalize(vWorldPosition - fogOrigin);
-      float fogDepth = distance(vWorldPosition, fogOrigin);
-
-      // f(p) = fbm( p + fbm( p ) )
-      vec3 noiseSampleCoord = vWorldPosition * 0.00025 + vec3(
-          0.0, 0.0, fogTime * 0.025);
-      float noiseSample = FBM(noiseSampleCoord + FBM(noiseSampleCoord)) * 0.5 + 0.5;
-      fogDepth *= mix(noiseSample, 1.0, saturate((fogDepth - 5000.0) / 5000.0));
-      fogDepth *= fogDepth;
-
-      float heightFactor = 0.05;
-      float fogFactor = heightFactor * exp(-fogOrigin.y * fogDensity) * (
-          1.0 - exp(-fogDepth * fogDirection.y * fogDensity)) / fogDirection.y;
-      fogFactor = saturate(fogFactor);
-
-      gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, fogFactor );
-    #endif`;
+    // Set up the custom shader chunks FIRST, before any materials are created
+    setupCustomFogShaders(); // Use the fixed version from above
     
-    THREE.ShaderChunk.fog_pars_fragment = _NOISE_GLSL + `
-    #ifdef USE_FOG
-      uniform float fogTime;
-      uniform vec3 fogColor;
-      varying vec3 vWorldPosition;
-      #ifdef FOG_EXP2
-        uniform float fogDensity;
-      #else
-        uniform float fogNear;
-        uniform float fogFar;
-      #endif
-    #endif`;
-    
-    //CHATGPT SAVING THE DAY!!!!!
-    //I couldnt figure out what the problem was it kept saying shader issue
-    //so I looked and looked and looked through my code and the shaders were being properly
-    //loaded and setup so I was so confused what the problem was. 
-    //so I finally decided im going to ask AI. Claude couldnt figure it out,
-    //but my good old homie ChatGPT somehow figured out that i needed to initialize the worldPosition variable in
-    //the fog vertex using vec4. I was shocked and honestly relieved. 
-
-    //Prompt to AI -
-    //I am currently trying to implement a split view camera into my program as a 
-    // test to configure the camera properly. Everything was working fine until I started implementing the camera code. 
-    //I am getting this error message and I need you to see if you can configure what it is meaning,
-    //also see if you can find the solution if possible.
-    //-Error message goes here but it is way to big-
-    THREE.ShaderChunk.fog_vertex = `
-    #ifdef USE_FOG
-      vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-      vWorldPosition = worldPosition.xyz;
-    #endif`;
-    
-    THREE.ShaderChunk.fog_pars_vertex = `
-    #ifdef USE_FOG
-      varying vec3 vWorldPosition;
-    #endif`;
-
     const canvas = document.querySelector('#c');
     const renderer = new THREE.WebGLRenderer({ antialias: true, canvas });
     const baseURL = 'https://storage.googleapis.com/fairgrounds-model/';
@@ -379,13 +475,12 @@ function main() {
     let moveBackward = false;
     let moveLeft = false;
     let moveRight = false;
-
     let cameraBoundarySystem;
-
     let prevTime = performance.now();
     const velocity = new THREE.Vector3();
     const direction = new THREE.Vector3();
 
+    // Loading UI setup
     const loadingDiv = document.createElement('div');
     loadingDiv.style.position = 'absolute';
     loadingDiv.style.top = '50%';
@@ -399,22 +494,35 @@ function main() {
     loadingDiv.textContent = 'Loading model (0%)...';
     document.body.appendChild(loadingDiv);
 
-    const blocker = document.getElementById( 'blocker' );
-    const instructions = document.getElementById( 'instructions' );
+    const blocker = document.getElementById('blocker');
+    const instructions = document.getElementById('instructions');
 
+    // Camera setup
     const fov = 55;
-    const aspect = 2; // the canvas default
+    const aspect = 2;
     const near = 0.1;
     const far = 650;
     const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
     camera.position.set(-53.35, 32, 4.64);
 
-	const scene = new THREE.Scene();
-
+    const scene = new THREE.Scene();
     const gui = new GUI();
     
-    // Camera controls
-    var cameraResetButton = {
+    // Store shaders that need to be updated with fogTime
+    const shaders = [];
+
+    // Modified ModifyShader function with error handling
+    const ModifyShader = (shader) => {
+        try {
+            shaders.push(shader);
+            shader.uniforms.fogTime = { value: 0.0 };
+        } catch (error) {
+            console.warn('Failed to modify shader:', error);
+        }
+    };
+
+    // Camera GUI controls
+    const cameraResetButton = {
         reset_position: function() {
             camera.position.set(-53.35, 32, 4.64);
         }
@@ -429,98 +537,83 @@ function main() {
     cameraFolder.add(cameraResetButton, 'reset_position');
     cameraFolder.open();
 
+    // Pointer lock controls
     const controls = new PointerLockControls(camera, canvas);
 
-    instructions.addEventListener( 'click', function () {
+    instructions.addEventListener('click', function () {
         controls.lock();
     });
 
-    controls.addEventListener( 'lock', function () {
+    controls.addEventListener('lock', function () {
         instructions.style.display = 'none';
         blocker.style.display = 'none';
     });
 
-    controls.addEventListener( 'unlock', function () {
+    controls.addEventListener('unlock', function () {
         instructions.style.display = '';
         blocker.style.display = '';
     });
 
-    scene.add( controls.object );
+    scene.add(controls.object);
 
-    //This is the movement event function for the keys when they go up and down
-    const onKeyDown = function ( event ) {
-
-        switch ( event.code ) {
-
+    // Movement event handlers
+    const onKeyDown = function (event) {
+        switch (event.code) {
             case 'ArrowUp':
             case 'KeyW':
                 moveForward = true;
                 break;
-            
             case 'ArrowLeft':
             case 'KeyA':
                 moveLeft = true;
                 break;
-            
             case 'ArrowDown':
             case 'KeyS':
                 moveBackward = true;
                 break;
-
             case 'ArrowRight':
-                case 'KeyD':
-                    moveRight = true;
-                    break;
+            case 'KeyD':
+                moveRight = true;
+                break;
         }
     };
-        const onKeyUp = function ( event ) {
 
-        switch ( event.code ) {
-
+    const onKeyUp = function (event) {
+        switch (event.code) {
             case 'ArrowUp':
             case 'KeyW':
                 moveForward = false;
                 break;
-            
             case 'ArrowLeft':
             case 'KeyA':
                 moveLeft = false;
                 break;
-            
             case 'ArrowDown':
             case 'KeyS':
                 moveBackward = false;
                 break;
-
             case 'ArrowRight':
-                case 'KeyD':
-                    moveRight = false;
-                    break;
+            case 'KeyD':
+                moveRight = false;
+                break;
         }
     };
-    document.addEventListener( 'keydown', onKeyDown );
-    document.addEventListener( 'keyup', onKeyUp );
 
-    // Store shaders that need to be updated with fogTime
-    const shaders = [];
-    const ModifyShader = (s) => {
-        shaders.push(s);
-        s.uniforms.fogTime = {value: 0.0};
-    };
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keyup', onKeyUp);
 
-	//Got this scenegraph dump code from the threejs documentation, super helperful
-	//and it looks great in the console
-	function dumpObject( obj, lines = [], isLast = true, prefix = '' ) {
-		const localPrefix = isLast ? '└─' : '├─';
-		lines.push( `${prefix}${prefix ? localPrefix : ''}${obj.name || '*no-name*'} [${obj.type}]` );
-		const newPrefix = prefix + ( isLast ? '  ' : '│ ' );
-		const lastNdx = obj.children.length - 1;
-		obj.children.forEach( ( child, ndx ) => {
-			const isLast = ndx === lastNdx;
-			dumpObject( child, lines, isLast, newPrefix );
-		} );
-		return lines;
-	}
+    // Scene graph dump function
+    function dumpObject(obj, lines = [], isLast = true, prefix = '') {
+        const localPrefix = isLast ? '└─' : '├─';
+        lines.push(`${prefix}${prefix ? localPrefix : ''}${obj.name || '*no-name*'} [${obj.type}]`);
+        const newPrefix = prefix + (isLast ? '  ' : '│ ');
+        const lastNdx = obj.children.length - 1;
+        obj.children.forEach((child, ndx) => {
+            const isLast = ndx === lastNdx;
+            dumpObject(child, lines, isLast, newPrefix);
+        });
+        return lines;
+    }
 
     function setupBoundaries() {
         cameraBoundarySystem = setupCameraBoundaries(scene, camera, controls);
@@ -533,7 +626,7 @@ function main() {
         boundaryFolder.open();
     }
 
-    // Add hemisphere light
+    // Lighting setup
     {
         const skyColor = 0xB1E1FF;
         const groundColor = 0xB97A20;
@@ -542,7 +635,6 @@ function main() {
         scene.add(light);
     }
 
-    // Add directional light with GUI controls
     {
         const color = 0xFFFFFF;
         const intensity = 5;
@@ -557,27 +649,39 @@ function main() {
         lightFolder.open();
     }
 
-    // Add skybox
+    // Skybox setup with error handling
     {
-        let loader = new THREE.TextureLoader();
+        const loader = new THREE.TextureLoader();
         const imagePath = '../public/skybox/Panorama_Sky_23-512x512.png';
-        loader.load(imagePath, (panoramaTexture) => {
-            const skySphereGeometry = new THREE.SphereGeometry(500, 60, 60);
-
-            panoramaTexture.mapping = THREE.EquirectangularReflectionMapping;
-            panoramaTexture.colorSpace = THREE.SRGBColorSpace;
-            let skySphereMaterial = new THREE.MeshBasicMaterial({
-                map: panoramaTexture,
-            });
-
-            skySphereMaterial.side = THREE.BackSide;
-            let skySphereMesh = new THREE.Mesh(skySphereGeometry, skySphereMaterial);
-            skySphereMesh.material.onBeforeCompile = ModifyShader;
-            scene.add(skySphereMesh);
-        });
+        
+        loader.load(
+            imagePath, 
+            (panoramaTexture) => {
+                try {
+                    const skySphereGeometry = new THREE.SphereGeometry(500, 60, 60);
+                    panoramaTexture.mapping = THREE.EquirectangularReflectionMapping;
+                    panoramaTexture.colorSpace = THREE.SRGBColorSpace;
+                    
+                    const skySphereMaterial = new THREE.MeshBasicMaterial({
+                        map: panoramaTexture,
+                        side: THREE.BackSide
+                    });
+                    
+                    skySphereMaterial.onBeforeCompile = ModifyShader;
+                    const skySphereMesh = new THREE.Mesh(skySphereGeometry, skySphereMaterial);
+                    scene.add(skySphereMesh);
+                } catch (error) {
+                    console.error('Error setting up skybox:', error);
+                }
+            },
+            undefined,
+            (error) => {
+                console.error('Error loading skybox texture:', error);
+            }
+        );
     }
 
-    // Set up fog with GUI controls
+    // Fog setup
     scene.fog = new THREE.FogExp2(0xbe9fd4, 0.005);
     const fogFolder = gui.addFolder('Fog');
     const fogGUIHelper = new FogGUIHelper(scene.fog, camera);
@@ -585,54 +689,70 @@ function main() {
     fogFolder.addColor(fogGUIHelper, 'color');
     fogFolder.open();
 
-    // Load the GLTF model
+    // GLTF Model loading with improved error handling
     {
         const gltfLoader = new GLTFLoader();
-        gltfLoader.load(baseURL + 'fairgrounds.glb', (glb) => {
-            loadingDiv.style.display = 'none';
-            const root = glb.scene;
-            
-            // Apply shader modification to all meshes in the scene
-			// Also wanted to note this was done by ChatGPT as well. It was part of the problem
-			// to some degree but not as major, this just helps load the shaders properly
-            root.traverse((child) => {
-                if (child.isMesh && child.material) {
-                    if (Array.isArray(child.material)) {
-                        child.material.forEach(mat => {
-                            mat.onBeforeCompile = ModifyShader;
-                        });
-                    } else {
-                        child.material.onBeforeCompile = ModifyShader;
+        gltfLoader.load(
+            baseURL + 'fairgrounds.glb',
+            (glb) => {
+                try {
+                    loadingDiv.style.display = 'none';
+                    const root = glb.scene;
+
+                    // Use the safer texture optimization system
+                    const updateTextureQuality = setupOptimizedTextureSystem(root, scene, camera);
+                    window.updateTextureQuality = updateTextureQuality;
+                    
+                    // Apply shader modifications more safely
+                    root.traverse((child) => {
+                        if (child.isMesh && child.material) {
+                            try {
+                                if (Array.isArray(child.material)) {
+                                    child.material.forEach(mat => {
+                                        // Only apply fog shader to compatible materials
+                                        if (mat.isMeshStandardMaterial || mat.isMeshBasicMaterial) {
+                                            mat.onBeforeCompile = ModifyShader;
+                                        }
+                                    });
+                                } else {
+                                    if (child.material.isMeshStandardMaterial || child.material.isMeshBasicMaterial) {
+                                        child.material.onBeforeCompile = ModifyShader;
+                                    }
+                                }
+                            } catch (error) {
+                                console.warn(`Failed to apply shader to material:`, error);
+                            }
+                        }
+                    });
+                    
+                    scene.add(root);
+                    console.log(dumpObject(root).join('\n'));
+                    
+                    setupBoundaries();
+                    blocker.style.display = '';
+                    instructions.style.display = '';
+                } catch (error) {
+                    console.error('Error processing loaded model:', error);
+                    loadingDiv.textContent = 'Error processing model. Check console for details.';
+                    loadingDiv.style.background = 'rgba(255,0,0,0.7)';
+                }
+            },
+            (xhr) => {
+                if (xhr.lengthComputable) {
+                    const percentComplete = Math.round((xhr.loaded / xhr.total) * 100);
+                    loadingDiv.textContent = `Loading model (${percentComplete}%)...`;
+                    if (blocker.style.display === '' && instructions.style.display === '') {
+                        instructions.style.display = 'none';
+                        blocker.style.display = 'none';
                     }
                 }
-            });
-            
-            scene.add(root);
-			console.log(dumpObject(root).join('\n'));
-			
-            // controls.update();
-
-            setupBoundaries();
-            blocker.style.display = '';
-            instructions.style.display = '';
-        },
-        (xhr) => {
-            // Progress callback
-            if (xhr.lengthComputable) {
-                const percentComplete = Math.round((xhr.loaded / xhr.total) * 100);
-                loadingDiv.textContent = `Loading model (${percentComplete}%)...`;
-                if (blocker.style.display === '' && instructions.style.display === ''){
-                    instructions.style.display = 'none';
-                    blocker.style.display = 'none';
-                }
+            },
+            (error) => {
+                loadingDiv.textContent = 'Error loading model. Check console for details.';
+                loadingDiv.style.background = 'rgba(255,0,0,0.7)';
+                console.error('Error loading model:', error);
             }
-        },
-        (error) => {
-            // Error callback
-            loadingDiv.textContent = 'Error loading model. Check console for details.';
-            loadingDiv.style.background = 'rgba(255,0,0,0.7)';
-            console.error('Error loading model:', error);
-        });
+        );
     }
 
     function resizeRendererToDisplaySize(renderer) {
@@ -651,51 +771,65 @@ function main() {
     let previousTime = null;
 
     function render(time) {
-        // Update fog time for shaders
-        if (previousTime === null) {
+        try {
+            // Update fog time for shaders
+            if (previousTime === null) {
+                previousTime = time;
+            }
+            const timeElapsed = (time - previousTime) * 0.001;
+            totalTime += timeElapsed;
             previousTime = time;
+            
+            // Update fog time in all shaders with error handling
+            for (let s of shaders) {
+                try {
+                    if (s.uniforms && s.uniforms.fogTime) {
+                        s.uniforms.fogTime.value = totalTime;
+                    }
+                } catch (error) {
+                    console.warn('Error updating shader uniform:', error);
+                }
+            }
+
+            const pointLockTime = performance.now();
+
+            if (controls.isLocked === true) {
+                const delta = (time - prevTime) / 1000;
+
+                velocity.x -= velocity.x * 10.0 * delta;
+                velocity.z -= velocity.z * 10.0 * delta;
+
+                direction.z = Number(moveForward) - Number(moveBackward);
+                direction.x = Number(moveRight) - Number(moveLeft);
+                direction.normalize();
+
+                if (moveForward || moveBackward) velocity.z -= direction.z * 100.0 * delta;
+                if (moveLeft || moveRight) velocity.x -= direction.x * 100.0 * delta;
+
+                controls.moveRight(-velocity.x * delta);
+                controls.moveForward(-velocity.z * delta);
+            }
+
+            if (window.updateTextureQuality) {
+                try {
+                    window.updateTextureQuality();
+                } catch (error) {
+                    console.warn('Error updating texture quality:', error);
+                }
+            }
+
+            prevTime = pointLockTime;
+
+            if (resizeRendererToDisplaySize(renderer)) {
+                const canvas = renderer.domElement;
+                camera.aspect = canvas.clientWidth / canvas.clientHeight;
+                camera.updateProjectionMatrix();
+            }
+
+            renderer.render(scene, camera);
+        } catch (error) {
+            console.error('Render loop error:', error);
         }
-        const timeElapsed = (time - previousTime) * 0.001;
-        totalTime += timeElapsed;
-        previousTime = time;
-        
-        // Update fog time in all shaders
-        for (let s of shaders) {
-            s.uniforms.fogTime.value = totalTime;
-        }
-
-        const pointLockTime = performance.now();
-
-        if ( controls.isLocked === true ){
-
-            const delta = ( time - prevTime ) / 1000;
-
-            velocity.x -= velocity.x * 10.0 * delta;
-            velocity.z -= velocity.z * 10.0 * delta;
-
-            direction.z = Number( moveForward ) - Number( moveBackward );
-            direction.x = Number( moveRight ) - Number( moveLeft );
-            direction.normalize();
-
-            if ( moveForward || moveBackward ) velocity.z -= direction.z * 100.0 * delta;
-            if ( moveLeft || moveRight ) velocity.x -= direction.x * 100.0 * delta;
-
-            controls.moveRight( - velocity.x * delta );
-            controls.moveForward( - velocity.z * delta );
-
-        }
-
-        prevTime = pointLockTime;
-
-		if(resizeRendererToDisplaySize(renderer) ) {
-			// Adjust the camera for this aspect
-			const canvas = renderer.domElement;
-			camera.aspect = canvas.clientWidth / canvas.clientHeight;
-			camera.updateProjectionMatrix();
-		}
-	
-		// Render
-		renderer.render(scene, camera);
 
         requestAnimationFrame(render);
     }
