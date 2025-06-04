@@ -778,12 +778,28 @@ function main() {
             }
             console.log('GUI Mode: Activated - Mouse is now free for GUI interaction');
             updateGUIVisibility();
-        } else if(!instructionsActive && !PopupManager.popUpActive ) {
+        } else if(!instructionsActive && !PopupManager.popUpActive ) {  
+            blurAllGUIElements();
             controls.lock();
             console.log('GUID Mode: Deactivated - Camera Controls active');
             updateGUIVisibility();
         }
     }
+
+    function blurAllGUIElements() {
+    if (document.activeElement && document.activeElement !== document.body) {
+        document.activeElement.blur();
+    }
+    
+    const guiInputs = document.querySelectorAll('.lil-gui input, .lil-gui select, .lil-gui button');
+    guiInputs.forEach(element => {
+        if (element === document.activeElement) {
+            element.blur();
+        }
+    });
+    
+    canvas.focus();
+}
 
     function updateGUIVisibility() {
         const guiElements = document.querySelectorAll('.lil-gui');
@@ -1247,7 +1263,7 @@ function main() {
             }
         }
 
-        if ( controls.isLocked === true || isGUIMode  && !PopupManager.popUpActive ){
+        if ( controls.isLocked === true || isGUIMode  && !PopupManager.popUpActive && canvas === document.activeElement){
 
             const delta = ( time - prevTime ) / 1000;
 
