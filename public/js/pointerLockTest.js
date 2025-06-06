@@ -191,10 +191,10 @@ class AdvancedCullingLODManager {
         
         // LOD distance thresholds (in world units)
         this.lodDistances = {
-            high: 50,      // Full detail within 50 units
-            medium: 150,   // Medium detail from 50-150 units
-            low: 300,      // Low detail from 150-300 units
-            cull: 500      // Don't render beyond 500 units
+            high: 25,      // Full detail within 50 units
+            medium: 75,   // Medium detail from 50-150 units
+            low: 100,      // Low detail from 150-300 units
+            cull: 150      // Don't render beyond 500 units
         };
         
         // Performance tracking
@@ -524,36 +524,6 @@ class AdvancedCullingLODManager {
         this.boundingSpheres.clear();
     }
 }
-
-// Example usage with your existing code:
-function setupCullingAndLOD(scene, camera, renderer) {
-    const cullingLODManager = new AdvancedCullingLODManager(camera, renderer);
-    
-    // Register objects after loading your GLTF model
-    scene.traverse((child) => {
-        if (child.isMesh) {
-            // Register each mesh with custom options
-            cullingLODManager.registerObject(child, {
-                // Custom LOD distances for different object types
-                lodDistances: child.name.includes('building') ? {
-                    high: 100,
-                    medium: 300,
-                    low: 600,
-                    cull: 1000
-                } : undefined,
-                
-                // Some objects might not need LOD
-                useLOD: !child.name.includes('skybox'),
-                
-                // Some critical objects shouldn't be culled
-                allowCulling: !child.name.includes('player')
-            });
-        }
-    });
-    
-    return cullingLODManager;
-}
-
 
 class SafeTextureLODManager {
     constructor() {
@@ -1115,10 +1085,10 @@ function main() {
     
     // LOD distance controls
     const lodControls = {
-        highLODDistance: 50,
-        mediumLODDistance: 150,
-        lowLODDistance: 300,
-        cullDistance: 500,
+        highLODDistance: 25,
+        mediumLODDistance: 75,
+        lowLODDistance: 100,
+        cullDistance: 150,
         enableCulling: true,
         enableLOD: true
     };
@@ -1252,9 +1222,13 @@ function main() {
     // GLTF Model loading with improved error handling
     {
         const dracoLoader = new DRACOLoader();
-        dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+        dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+        dracoLoader.setDecoderConfig({ type: 'js'});
+        dracoLoader.preload();
+
         const gltfLoader = new GLTFLoader();
         gltfLoader.setDRACOLoader(dracoLoader);
+
         gltfLoader.load(
             baseURL + 'fairgrounds.glb',
             (glb) => {
@@ -1286,19 +1260,19 @@ function main() {
 
                             let lodOptions = {};
                             let objectType = 'generic';
-
+                            // Roads
                             if (isRoad) {
                                 roadCount++;
                                 objectType = 'road';
                                 
                                 lodOptions = {
-                                    allowCulling: false, // Roads should never be culled completely
+                                    allowCulling: false, 
                                     useLOD: true,
                                     lodDistances: {
-                                        high: 200,    // Keep high quality longer for roads
-                                        medium: 500,  // Medium quality for distant roads
-                                        low: 1000,    // Low quality for very distant roads
-                                        cull: 2000    // Only cull at extreme distances
+                                        high: 200,  
+                                        medium: 500,  
+                                        low: 1000,  
+                                        cull: 2000    
                                     }
                                 };
                             }
@@ -1310,10 +1284,10 @@ function main() {
                                 objectType = 'building';
                                 lodOptions = {
                                     lodDistances: {
-                                        high: 80,
-                                        medium: 200,
-                                        low: 400,
-                                        cull: 800
+                                        high: 40,
+                                        medium: 100,
+                                        low: 200,
+                                        cull: 400
                                     }
                                 };
                             }
@@ -1338,7 +1312,7 @@ function main() {
                                     name.includes('landscape')) {
                                 objectType = 'terrain';
                                 lodOptions = {
-                                    allowCulling: false, // Never cull terrain
+                                    allowCulling: false, 
                                     lodDistances: {
                                         high: 100,
                                         medium: 300,
@@ -1358,7 +1332,7 @@ function main() {
                                     options: lodOptions
                                 });
                             } catch (error) {
-                                console.error(`❌ Failed to register object "${child.name}":`, error);
+                                console.error(`Failed to register object "${child.name}":`, error);
                             }
 
                             // Apply fog shaders with better error handling
@@ -1368,7 +1342,7 @@ function main() {
                                     if (isFogCompatibleMaterial(mat)) {
                                         mat.onBeforeCompile = ModifyShader;
                                     } else {
-                                        console.log(`⚠️ Skipped fog shader for ${child.name} material ${index} (incompatible type: ${mat.type})`);
+                                        console.log(`Skipped fog shader for ${child.name} material ${index} (incompatible type: ${mat.type})`);
                                     }
                                 });
                             } catch (error) {
@@ -1389,11 +1363,15 @@ function main() {
                     setupBoundaries();
                     blocker.style.display = '';
                     instructions.style.display = '';
+
+                    dracoLoader.dispose();
                     
                 } catch (error) {
                     console.error('Error processing loaded model:', error);
                     loadingDiv.textContent = 'Error processing model. Check console for details.';
                     loadingDiv.style.background = 'rgba(255,0,0,0.7)';
+
+                    dracoLoader.dispose();
                 }
             },
             (xhr) => {
@@ -1410,6 +1388,8 @@ function main() {
                 loadingDiv.textContent = 'Error loading model. Check console for details.';
                 loadingDiv.style.background = 'rgba(255,0,0,0.7)';
                 console.error('Error loading model:', error);
+
+                dracoLoader.dispose();
             }
         );
     }
