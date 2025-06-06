@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { Euler }  from 'three';
 
 const _NOISE_GLSL = `
@@ -121,6 +122,624 @@ float FBM(vec3 p) {
   return value;
 }
 `;
+
+// Fixed shader chunks that avoid variable redefinition conflicts
+// Also had claude help me redefine the noise calculations and fog shader for overall better performance
+function setupCustomFogShaders() {
+    // Use a unique variable name to avoid conflicts
+    THREE.ShaderChunk.fog_pars_vertex = `
+    #ifdef USE_FOG
+      varying vec3 vFogWorldPosition;
+    #endif`;
+
+    THREE.ShaderChunk.fog_vertex = `
+    #ifdef USE_FOG
+      vec4 fogWorldPosition = modelMatrix * vec4(position, 1.0);
+      vFogWorldPosition = fogWorldPosition.xyz;
+    #endif`;
+
+    THREE.ShaderChunk.fog_pars_fragment = _NOISE_GLSL + `
+    #ifdef USE_FOG
+      uniform float fogTime;
+      uniform vec3 fogColor;
+      varying vec3 vFogWorldPosition;
+      #ifdef FOG_EXP2
+        uniform float fogDensity;
+      #else
+        uniform float fogNear;
+        uniform float fogFar;
+      #endif
+    #endif`;
+
+    // Basically it just checks the distance of objects and if it is too distant 
+    // then the noise is much less for better performance.
+    THREE.ShaderChunk.fog_fragment = `
+    #ifdef USE_FOG
+        vec3 fogOrigin = cameraPosition;
+        float fogDepth = distance(vFogWorldPosition, fogOrigin);
+        
+        // Simplified noise calculation for distant objects
+        float noiseSample = 1.0;
+        if (fogDepth < 200.0) {
+            vec3 noiseSampleCoord = vFogWorldPosition * 0.00025 + vec3(0.0, 0.0, fogTime * 0.025);
+            noiseSample = FBM(noiseSampleCoord + FBM(noiseSampleCoord)) * 0.5 + 0.5;
+        }
+        
+        fogDepth *= mix(noiseSample, 1.0, saturate((fogDepth - 5000.0) / 5000.0));
+        fogDepth *= fogDepth;
+        
+        float heightFactor = 0.05;
+        float fogFactor = heightFactor * exp(-fogOrigin.y * fogDensity) * 
+            (1.0 - exp(-fogDepth * normalize(vFogWorldPosition - fogOrigin).y * fogDensity)) / 
+            normalize(vFogWorldPosition - fogOrigin).y;
+        fogFactor = saturate(fogFactor);
+        
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, fogFactor);
+    #endif`;
+}
+
+// Advanced Frustum Culling and LOD System for Three.js
+// This is another LODManager section of code that I found online,
+// It helps keep only objects in the frustrum loaded and unloads objects that are too far away
+class AdvancedCullingLODManager {
+    constructor(camera, renderer) {
+        this.camera = camera;
+        this.renderer = renderer;
+        
+        // Frustum culling setup
+        this.frustum = new THREE.Frustum();
+        this.cameraMatrix = new THREE.Matrix4();
+        
+        // LOD distance thresholds (in world units)
+        this.lodDistances = {
+            high: 25,      // Full detail within 50 units
+            medium: 75,   // Medium detail from 50-150 units
+            low: 100,      // Low detail from 150-300 units
+            cull: 150      // Don't render beyond 500 units
+        };
+        
+        // Performance tracking
+        this.stats = {
+            totalObjects: 0,
+            culledObjects: 0,
+            highLOD: 0,
+            mediumLOD: 0,
+            lowLOD: 0,
+            renderCalls: 0
+        };
+        
+        // Cache for expensive calculations
+        this.objectCache = new Map();
+        this.frameCount = 0;
+        
+        // Bounding spheres cache for faster frustum testing
+        this.boundingSpheres = new Map();
+    }
+
+    // Register an object for culling and LOD management
+    registerObject(mesh, options = {}) {
+        const id = mesh.uuid;
+        
+        // Create LOD variants if they don't exist
+        const lodData = {
+            mesh: mesh,
+            originalMaterial: mesh.material,
+            
+            // LOD Materials (you can customize these based on your needs)
+            highLODMaterial: mesh.material, // Original material
+            mediumLODMaterial: this.createMediumLODMaterial(mesh.material),
+            lowLODMaterial: this.createLowLODMaterial(mesh.material),
+            
+            // Custom LOD distances for this object (optional)
+            lodDistances: options.lodDistances || this.lodDistances,
+            
+            // Whether this object can be culled
+            allowCulling: options.allowCulling !== false,
+            
+            // Whether this object uses LOD
+            useLOD: options.useLOD !== false,
+            
+            // Current state
+            currentLOD: 'high',
+            isVisible: true,
+            lastUpdateFrame: 0
+        };
+        
+        this.objectCache.set(id, lodData);
+        
+        // Compute and cache bounding sphere for faster frustum testing
+        this.computeBoundingSphere(mesh);
+        
+        return id;
+    }
+
+    // Compute bounding sphere for an object (more efficient than bounding box for frustum testing)
+    computeBoundingSphere(mesh) {
+        if (!mesh.geometry.boundingSphere) {
+            mesh.geometry.computeBoundingSphere();
+        }
+        
+        const sphere = mesh.geometry.boundingSphere.clone();
+        sphere.applyMatrix4(mesh.matrixWorld);
+        
+        this.boundingSpheres.set(mesh.uuid, sphere);
+    }
+
+    // Create medium LOD material (simplified version of original)
+    createMediumLODMaterial(originalMaterial) {
+        if (!originalMaterial) return originalMaterial;
+        
+        // Clone the material but with some optimizations
+        const mediumMaterial = originalMaterial.clone();
+        
+        // Reduce texture resolution if possible
+        if (mediumMaterial.map) {
+            // You would implement texture downscaling here
+            // For now, we'll just reduce some quality settings
+            mediumMaterial.map.minFilter = THREE.LinearFilter;
+            mediumMaterial.map.magFilter = THREE.LinearFilter;
+        }
+        
+        // Disable expensive features for medium LOD
+        if (mediumMaterial.normalMap) {
+            // Keep normal map but might reduce its influence
+            mediumMaterial.normalScale = mediumMaterial.normalScale ? 
+                mediumMaterial.normalScale.clone().multiplyScalar(0.7) : 
+                new THREE.Vector2(0.7, 0.7);
+        }
+        
+        return mediumMaterial;
+    }
+
+    // Create low LOD material (heavily simplified)
+    createLowLODMaterial(originalMaterial) {
+        if (!originalMaterial) return originalMaterial;
+        
+        // Create a much simpler material for distant objects
+        const lowMaterial = new THREE.MeshBasicMaterial({
+            color: this.getAverageColor(originalMaterial),
+            transparent: originalMaterial.transparent,
+            opacity: originalMaterial.opacity
+        });
+        
+        // If original has a main texture, use it but simplified
+        if (originalMaterial.map) {
+            lowMaterial.map = originalMaterial.map;
+            lowMaterial.map.minFilter = THREE.NearestFilter;
+            lowMaterial.map.magFilter = THREE.NearestFilter;
+        }
+        
+        return lowMaterial;
+    }
+
+    // Extract average color from material for low LOD fallback
+    getAverageColor(material) {
+        if (material.color) return material.color;
+        if (material.emissive) return material.emissive;
+        return new THREE.Color(0x888888); // Default gray
+    }
+
+    // Main update function - call this every frame
+    update() {
+        this.frameCount++;
+        
+        // Reset stats
+        this.stats = {
+            totalObjects: this.objectCache.size,
+            culledObjects: 0,
+            highLOD: 0,
+            mediumLOD: 0,
+            lowLOD: 0,
+            renderCalls: 0
+        };
+        
+        // Update camera frustum
+        this.updateCameraFrustum();
+        
+        // Process each registered object
+        for (const [id, lodData] of this.objectCache) {
+            this.processObject(id, lodData);
+        }
+        
+        // Log performance stats occasionally
+        if (this.frameCount % 60 === 0) {
+            this.logStats();
+        }
+    }
+
+    // Update the camera frustum for culling tests
+    updateCameraFrustum() {
+        // Combine camera's projection and view matrices
+        this.cameraMatrix.multiplyMatrices(
+            this.camera.projectionMatrix,
+            this.camera.matrixWorldInverse
+        );
+        
+        // Extract frustum planes from the combined matrix
+        this.frustum.setFromProjectionMatrix(this.cameraMatrix);
+    }
+
+    // Process a single object for culling and LOD
+    processObject(id, lodData) {
+        const mesh = lodData.mesh;
+        
+        // Skip if object doesn't exist or is already hidden by user
+        if (!mesh || !mesh.parent) return;
+        
+        // Update world matrix if needed
+        if (mesh.matrixWorldNeedsUpdate) {
+            mesh.updateMatrixWorld();
+            this.computeBoundingSphere(mesh);
+        }
+        
+        // 1. FRUSTUM CULLING
+        const isInFrustum = this.isObjectInFrustum(mesh);
+        
+        if (!isInFrustum && lodData.allowCulling) {
+            // Object is outside camera view - cull it
+            mesh.visible = false;
+            lodData.isVisible = false;
+            this.stats.culledObjects++;
+            return;
+        }
+        
+        // Object is visible, make sure it's enabled
+        mesh.visible = true;
+        lodData.isVisible = true;
+        
+        // 2. LOD SELECTION
+        if (lodData.useLOD) {
+            this.updateObjectLOD(mesh, lodData);
+        }
+        
+        this.stats.renderCalls++;
+    }
+
+    // Test if object is within camera frustum
+    isObjectInFrustum(mesh) {
+        // Get cached bounding sphere
+        const boundingSphere = this.boundingSpheres.get(mesh.uuid);
+        
+        if (!boundingSphere) {
+            // Fallback to bounding box test if sphere not available
+            return this.frustum.intersectsObject(mesh);
+        }
+        
+        // Sphere test is faster than box test
+        return this.frustum.intersectsSphere(boundingSphere);
+    }
+
+    // Update LOD for a specific object
+    updateObjectLOD(mesh, lodData) {
+        // Calculate distance from camera to object
+        const distance = this.camera.position.distanceTo(mesh.position);
+        
+        let newLOD = 'high';
+        
+        // Determine appropriate LOD level
+        if (distance > lodData.lodDistances.cull) {
+            // Beyond cull distance - hide completely
+            mesh.visible = false;
+            lodData.isVisible = false;
+            this.stats.culledObjects++;
+            return;
+        } else if (distance > lodData.lodDistances.low) {
+            newLOD = 'low';
+            this.stats.lowLOD++;
+        } else if (distance > lodData.lodDistances.medium) {
+            newLOD = 'medium';
+            this.stats.mediumLOD++;
+        } else {
+            newLOD = 'high';
+            this.stats.highLOD++;
+        }
+        
+        // Only update material if LOD level changed
+        if (newLOD !== lodData.currentLOD) {
+            this.applyLODLevel(mesh, lodData, newLOD);
+            lodData.currentLOD = newLOD;
+        }
+    }
+
+    // Apply the appropriate LOD level to an object
+    applyLODLevel(mesh, lodData, lodLevel) {
+        switch (lodLevel) {
+            case 'high':
+                mesh.material = lodData.highLODMaterial;
+                // Enable all geometry details
+                if (mesh.morphTargetInfluences) {
+                    // Keep morph targets active
+                }
+                break;
+                
+            case 'medium':
+                mesh.material = lodData.mediumLODMaterial;
+                // Might disable some geometry features
+                break;
+                
+            case 'low':
+                mesh.material = lodData.lowLODMaterial;
+                // Disable expensive geometry features
+                if (mesh.morphTargetInfluences) {
+                    // Disable morph targets for performance
+                    mesh.morphTargetInfluences.fill(0);
+                }
+                break;
+        }
+        
+        // Force material update
+        mesh.material.needsUpdate = true;
+    }
+
+    // Get performance statistics
+    getStats() {
+        const cullingEfficiency = this.stats.totalObjects > 0 ? 
+            (this.stats.culledObjects / this.stats.totalObjects * 100).toFixed(1) : 0;
+        
+        return {
+            ...this.stats,
+            cullingEfficiency: `${cullingEfficiency}%`,
+            frameRate: this.getFPS()
+        };
+    }
+
+    // Simple FPS calculation
+    getFPS() {
+        // This is a simplified version - you might want a more sophisticated FPS counter
+        return Math.round(1000 / (performance.now() - (this.lastFrameTime || performance.now())));
+    }
+
+    // Log performance statistics
+    logStats() {
+        const stats = this.getStats();
+        console.log('Culling & LOD Stats:', {
+            'Total Objects': stats.totalObjects,
+            'Culled': `${stats.culledObjects} (${stats.cullingEfficiency})`,
+            'High LOD': stats.highLOD,
+            'Medium LOD': stats.mediumLOD,
+            'Low LOD': stats.lowLOD,
+            'Render Calls': stats.renderCalls
+        });
+    }
+
+    // Remove an object from management
+    unregisterObject(meshOrId) {
+        const id = typeof meshOrId === 'string' ? meshOrId : meshOrId.uuid;
+        this.objectCache.delete(id);
+        this.boundingSpheres.delete(id);
+    }
+
+    // Clean up resources
+    dispose() {
+        // Dispose of created materials
+        for (const [id, lodData] of this.objectCache) {
+            if (lodData.mediumLODMaterial && lodData.mediumLODMaterial !== lodData.originalMaterial) {
+                lodData.mediumLODMaterial.dispose();
+            }
+            if (lodData.lowLODMaterial && lodData.lowLODMaterial !== lodData.originalMaterial) {
+                lodData.lowLODMaterial.dispose();
+            }
+        }
+        
+        this.objectCache.clear();
+        this.boundingSpheres.clear();
+    }
+}
+
+class SafeTextureLODManager {
+    constructor() {
+        this.processedTextures = new Set();
+        this.currentLOD = 'high';
+    }
+
+    // More conservative texture processing
+    async processGLTFTextures(gltfScene, options = {}) {
+        const { 
+            enableLODs = true, 
+            maxTextureSize = 1024, // Can be changed to 512 for less memory pressure
+            compressionQuality = 0.8 
+        } = options;
+        
+        console.log('Processing GLTF textures...');
+        
+        // Process materials more safely
+        gltfScene.traverse((child) => {
+            if (child.isMesh && child.material) {
+                const materials = Array.isArray(child.material) ? child.material : [child.material];
+                
+                materials.forEach(material => {
+                    // Process ALL material types that support textures
+                    if (this.isSupportedMaterial(material)) {
+                        this.optimizeMaterial(material, maxTextureSize, compressionQuality);
+                    }
+                });
+            }
+        });
+        
+        console.log('Texture processing complete');
+    }
+
+    // Check if material type supports texture optimization
+    isSupportedMaterial(material) {
+        return (
+            material.isMeshStandardMaterial || 
+            material.isMeshBasicMaterial || 
+            material.isMeshPhysicalMaterial ||
+            material.isMeshLambertMaterial ||
+            material.isMeshPhongMaterial
+        );
+    }
+
+    optimizeMaterial(material, maxSize, quality) {
+        // Extended list of texture properties for different material types
+        const textureProperties = [
+            'map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap',
+            'bumpMap', 'displacementMap', 'aoMap', 'lightMap', 'envMap',
+            // MeshPhysicalMaterial specific properties
+            'clearcoatMap', 'clearcoatNormalMap', 'clearcoatRoughnessMap',
+            'transmissionMap', 'thicknessMap', 'sheenColorMap', 'sheenRoughnessMap',
+            'specularIntensityMap', 'specularColorMap', 'iridescenceMap', 'iridescenceThicknessMap'
+        ];
+        
+        textureProperties.forEach(prop => {
+            if (material[prop] && !this.processedTextures.has(material[prop])) {
+                try {
+                    material[prop] = this.optimizeTexture(material[prop], maxSize, quality);
+                    this.processedTextures.add(material[prop]);
+                } catch (error) {
+                    console.warn(`Failed to optimize ${prop} texture:`, error);
+                }
+            }
+        });
+    }
+
+    optimizeTexture(texture, maxSize, quality) {
+        if (!texture.image || !texture.image.width) {
+            return texture;
+        }
+
+        const { width, height } = texture.image;
+        
+        // Only resize if texture is larger than maxSize
+        if (width <= maxSize && height <= maxSize) {
+            return texture;
+        }
+
+        try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            const scale = Math.min(maxSize / width, maxSize / height);
+            canvas.width = Math.floor(width * scale);
+            canvas.height = Math.floor(height * scale);
+            
+            ctx.drawImage(texture.image, 0, 0, canvas.width, canvas.height);
+            
+            const optimizedTexture = new THREE.CanvasTexture(canvas);
+            
+            // Copy all texture properties to maintain compatibility
+            this.copyTextureProperties(texture, optimizedTexture);
+            
+            return optimizedTexture;
+        } catch (error) {
+            console.warn('Texture optimization failed, using original:', error);
+            return texture;
+        }
+    }
+
+    copyTextureProperties(source, target) {
+        const propertiesToCopy = [
+            'wrapS', 'wrapT', 'minFilter', 'magFilter', 'colorSpace',
+            'flipY', 'premultiplyAlpha', 'unpackAlignment', 'encoding',
+            'generateMipmaps', 'anisotropy', 'offset', 'repeat', 'center', 'rotation'
+        ];
+
+        propertiesToCopy.forEach(prop => {
+            if (source[prop] !== undefined) {
+                try {
+                    target[prop] = source[prop];
+                } catch (error) {
+                    console.warn(`Failed to copy texture property ${prop}:`, error);
+                }
+            }
+        });
+
+        // Handle Vector2 properties separately
+        if (source.offset) target.offset.copy(source.offset);
+        if (source.repeat) target.repeat.copy(source.repeat);
+        if (source.center) target.center.copy(source.center);
+    }
+}
+
+function setupOptimizedTextureSystem(gltfScene, scene, camera) {
+    const safeTextureLOD = new SafeTextureLODManager();
+    
+    // Store references for distance-based optimization
+    const meshes = [];
+    const originalTextures = new Map();
+    const lowResTextures = new Map();
+    
+    // Collect all meshes and store texture references
+    gltfScene.traverse((child) => {
+        if (child.isMesh && child.material) {
+            meshes.push({ mesh: child, position: child.getWorldPosition(new THREE.Vector3()) });
+            
+            const materials = Array.isArray(child.material) ? child.material : [child.material];
+            materials.forEach(material => {
+                if (safeTextureLOD.isSupportedMaterial(material)) {
+                    // Store original textures
+                    const textureProps = ['map', 'normalMap', 'roughnessMap', 'metalnessMap'];
+                    textureProps.forEach(prop => {
+                        if (material[prop] && !originalTextures.has(material[prop])) {
+                            originalTextures.set(material[prop], material[prop]);
+                            // Create low-res version
+                            const lowRes = safeTextureLOD.optimizeTexture(material[prop], 256, 0.6);
+                            lowResTextures.set(material[prop], lowRes);
+                        }
+                    });
+                }
+            });
+        }
+    });
+    
+    // Process textures with error handling
+    safeTextureLOD.processGLTFTextures(gltfScene, {
+        enableLODs: true,
+        maxTextureSize: 1024,
+        compressionQuality: 0.8
+    }).catch(error => {
+        console.error('Texture processing error:', error);
+    });
+
+    // Return distance-based quality update function
+    return function updateTextureQuality() {
+        const cameraPosition = camera.position;
+        const HIGH_QUALITY_DISTANCE = 50;
+        const LOW_QUALITY_DISTANCE = 150;
+        
+        meshes.forEach(({ mesh }) => {
+            try {
+                // Get current world position
+                const meshPosition = mesh.getWorldPosition(new THREE.Vector3());
+                const distance = cameraPosition.distanceTo(meshPosition);
+                
+                const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+                materials.forEach(material => {
+                    if (safeTextureLOD.isSupportedMaterial(material)) {
+                        const useHighRes = distance < HIGH_QUALITY_DISTANCE;
+                        const useLowRes = distance > LOW_QUALITY_DISTANCE;
+                        
+                        const textureProps = ['map', 'normalMap', 'roughnessMap', 'metalnessMap'];
+                        textureProps.forEach(prop => {
+                            if (material[prop]) {
+                                const original = originalTextures.get(material[prop]);
+                                const lowRes = lowResTextures.get(material[prop]);
+                                
+                                if (useHighRes && original) {
+                                    material[prop] = original;
+                                } else if (useLowRes && lowRes) {
+                                    material[prop] = lowRes;
+                                }
+                            }
+                        });
+                    }
+                });
+            } catch (error) {
+                console.warn('Error updating mesh texture quality:', error);
+            }
+        });
+    };
+}
+
+function isFogCompatibleMaterial(material) {
+    return (
+        material.isMeshStandardMaterial ||
+        material.isMeshBasicMaterial ||
+        material.isMeshPhysicalMaterial ||
+        material.isMeshLambertMaterial ||
+        material.isMeshPhongMaterial
+    );
+}
 
 // This class helps with updating the projection matrix when changing camera near/far values
 class MinMaxGUIHelper {
@@ -341,6 +960,7 @@ class boundaryBox {
             transparent: true,
             opacity: 0.2
         });
+
 
         this.boundaryBox = null;
 
@@ -598,66 +1218,11 @@ const informationArray = [
 ]
 
 function main() {
-    // Set up the custom shader chunks for the advanced fog effect
-    THREE.ShaderChunk.fog_fragment = `
-    #ifdef USE_FOG
-      vec3 fogOrigin = cameraPosition;
-      vec3 fogDirection = normalize(vWorldPosition - fogOrigin);
-      float fogDepth = distance(vWorldPosition, fogOrigin);
 
-      // f(p) = fbm( p + fbm( p ) )
-      vec3 noiseSampleCoord = vWorldPosition * 0.00025 + vec3(
-          0.0, 0.0, fogTime * 0.025);
-      float noiseSample = FBM(noiseSampleCoord + FBM(noiseSampleCoord)) * 0.5 + 0.5;
-      fogDepth *= mix(noiseSample, 1.0, saturate((fogDepth - 5000.0) / 5000.0));
-      fogDepth *= fogDepth;
+    // Set up the custom shader chunks FIRST, before any materials are created
+    setupCustomFogShaders(); // Use the fixed version from above
 
-      float heightFactor = 0.05;
-      float fogFactor = heightFactor * exp(-fogOrigin.y * fogDensity) * (
-          1.0 - exp(-fogDepth * fogDirection.y * fogDensity)) / fogDirection.y;
-      fogFactor = saturate(fogFactor);
-
-      gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, fogFactor );
-    #endif`;
     
-    THREE.ShaderChunk.fog_pars_fragment = _NOISE_GLSL + `
-    #ifdef USE_FOG
-      uniform float fogTime;
-      uniform vec3 fogColor;
-      varying vec3 vWorldPosition;
-      #ifdef FOG_EXP2
-        uniform float fogDensity;
-      #else
-        uniform float fogNear;
-        uniform float fogFar;
-      #endif
-    #endif`;
-    
-    // CHATGPT SAVING THE DAY!!!!!
-    // I couldnt figure out what the problem was it kept saying shader issue
-    // so I looked and looked and looked through my code and the shaders were being properly
-    // loaded and setup so I was so confused what the problem was. 
-    // so I finally decided im going to ask AI. Claude couldnt figure it out,
-    // but my good old homie ChatGPT somehow figured out that i needed to initialize the worldPosition variable in
-    // the fog vertex using vec4. I was shocked and honestly relieved. 
-
-    // Prompt to AI -
-    // I am currently trying to implement a split view camera into my program as a 
-    // test to configure the camera properly. Everything was working fine until I started implementing the camera code. 
-    // I am getting this error message and I need you to see if you can configure what it is meaning,
-    // also see if you can find the solution if possible.
-    // -Error message goes here but it is way to big-
-    THREE.ShaderChunk.fog_vertex = `
-    #ifdef USE_FOG
-      vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-      vWorldPosition = worldPosition.xyz;
-    #endif`;
-    
-    THREE.ShaderChunk.fog_pars_vertex = `
-    #ifdef USE_FOG
-      varying vec3 vWorldPosition;
-    #endif`;
-
     const canvas = document.querySelector('#c');
     const renderer = new THREE.WebGLRenderer({ antialias: true, canvas });
     const baseURL = 'https://storage.googleapis.com/fairgrounds-model/';
@@ -668,17 +1233,18 @@ function main() {
     let moveBackward = false;
     let moveLeft = false;
     let moveRight = false;
+
     let isGUIMode = false;
     let guiFocused = false;
 
     let cameraEuler = new Euler( 0, 0, 0, 'YXZ' );
 
     let cameraBoundarySystem;
-
     let prevTime = performance.now();
     const velocity = new THREE.Vector3();
     const direction = new THREE.Vector3();
 
+    // Loading UI setup
     const loadingDiv = document.createElement('div');
     loadingDiv.style.position = 'absolute';
     loadingDiv.style.top = '50%';
@@ -696,19 +1262,42 @@ function main() {
     const instructions = document.getElementById( 'instructions' );
     let instructionsActive = true;
 
+    // Camera setup
     const fov = 55;
-    const aspect = 2; // the canvas default
+    const aspect = 2;
     const near = 0.1;
     const far = 650;
     const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
     camera.position.set(-53.35, 32, 4.64);
 
-	const scene = new THREE.Scene();
-
+    const scene = new THREE.Scene();
     const gui = new GUI();
     
-    // Camera controls
-    var cameraResetButton = {
+    // Store shaders that need to be updated with fogTime
+    const shaders = [];
+
+    // Modified ModifyShader function with error handling
+    const ModifyShader = (shader) => {
+        try {
+            shaders.push(shader);
+            shader.uniforms.fogTime = { value: 0.0 };
+        } catch (error) {
+            console.warn('Failed to modify shader:', error);
+        }
+    };
+
+    function setupOptimizedRendering(scene, camera, renderer) {
+        // Create the culling/LOD manager
+        const cullingLODManager = new AdvancedCullingLODManager(camera, renderer);
+        
+        // Store reference globally so we can use it after model loads
+        window.cullingLODManager = cullingLODManager;
+        
+        return cullingLODManager;
+    }
+
+    // Camera GUI controls
+    const cameraResetButton = {
         reset_position: function() {
             camera.position.set(-53.35, 32, 4.64);
         }
@@ -723,6 +1312,7 @@ function main() {
     cameraFolder.add(cameraResetButton, 'reset_position');
     cameraFolder.open();
 
+    // Pointer lock controls
     const controls = new PointerLockControls(camera, canvas);
     controls.maxPolarAngle = (120 * Math.PI) / 180;
     controls.minPolarAngle = (60 * Math.PI) / 180;
@@ -889,28 +1479,25 @@ function main() {
         if (guiFocused) return;
 
         switch ( event.code ) {
-
             case 'ArrowUp':
             case 'KeyW':
                 moveForward = true;
                 break;
-            
             case 'ArrowLeft':
             case 'KeyA':
                 moveLeft = true;
                 break;
-            
             case 'ArrowDown':
             case 'KeyS':
                 moveBackward = true;
                 break;
-
             case 'ArrowRight':
             case 'KeyD':
                 moveRight = true;
                 break;
         }
     };
+
     const rotateTheCamera = function ( event ) {
         if (guiFocused) return;
 
@@ -931,22 +1518,18 @@ function main() {
     const onKeyUp = function ( event ) {
 
         switch ( event.code ) {
-
             case 'ArrowUp':
             case 'KeyW':
                 moveForward = false;
                 break;
-            
             case 'ArrowLeft':
             case 'KeyA':
                 moveLeft = false;
                 break;
-            
             case 'ArrowDown':
             case 'KeyS':
                 moveBackward = false;
                 break;
-
             case 'ArrowRight':
             case 'KeyD':
                 moveRight = false;
@@ -982,26 +1565,72 @@ function main() {
         }
     });
 
-    // Store shaders that need to be updated with fogTime
-    const shaders = [];
-    const ModifyShader = (s) => {
-        shaders.push(s);
-        s.uniforms.fogTime = {value: 0.0};
+    const cullingLODManager = setupOptimizedRendering(scene, camera, renderer);
+    
+    // Add GUI controls for the culling system
+    const optimizationFolder = gui.addFolder('Performance Optimization');
+    
+    // LOD distance controls
+    const lodControls = {
+        highLODDistance: 25,
+        mediumLODDistance: 75,
+        lowLODDistance: 100,
+        cullDistance: 150,
+        enableCulling: true,
+        enableLOD: true
     };
+    
+    optimizationFolder.add(lodControls, 'highLODDistance', 10, 200).onChange(() => {
+        // Update all objects with new distances
+        if (window.cullingLODManager) {
+            for (const [id, lodData] of window.cullingLODManager.objectCache) {
+                lodData.lodDistances.high = lodControls.highLODDistance;
+                lodData.lodDistances.medium = lodControls.mediumLODDistance;
+                lodData.lodDistances.low = lodControls.lowLODDistance;
+                lodData.lodDistances.cull = lodControls.cullDistance;
+            }
+        }
+    });
+    
+    optimizationFolder.add(lodControls, 'mediumLODDistance', 50, 400).onChange(() => {
+        // Update logic same as above
+    });
+    
+    optimizationFolder.add(lodControls, 'enableCulling').onChange((value) => {
+        if (window.cullingLODManager) {
+            for (const [id, lodData] of window.cullingLODManager.objectCache) {
+                lodData.allowCulling = value;
+            }
+        }
+    });
+    
+    // Performance stats display
+    const perfStats = { showStats: false };
+    optimizationFolder.add(perfStats, 'showStats').onChange((value) => {
+        if (value) {
+            // Show stats every second
+            setInterval(() => {
+                if (window.cullingLODManager) {
+                    console.table(window.cullingLODManager.getStats());
+                }
+            }, 1000);
+        }
+    });
+    
+    optimizationFolder.open();
 
-	//Got this scenegraph dump code from the threejs documentation, super helperful
-	//and it looks great in the console
-	function dumpObject( obj, lines = [], isLast = true, prefix = '' ) {
-		const localPrefix = isLast ? '└─' : '├─';
-		lines.push( `${prefix}${prefix ? localPrefix : ''}${obj.name || '*no-name*'} [${obj.type}]` );
-		const newPrefix = prefix + ( isLast ? '  ' : '│ ' );
-		const lastNdx = obj.children.length - 1;
-		obj.children.forEach( ( child, ndx ) => {
-			const isLast = ndx === lastNdx;
-			dumpObject( child, lines, isLast, newPrefix );
-		} );
-		return lines;
-	}
+    // Scene graph dump function
+    function dumpObject(obj, lines = [], isLast = true, prefix = '') {
+        const localPrefix = isLast ? '└─' : '├─';
+        lines.push(`${prefix}${prefix ? localPrefix : ''}${obj.name || '*no-name*'} [${obj.type}]`);
+        const newPrefix = prefix + (isLast ? '  ' : '│ ');
+        const lastNdx = obj.children.length - 1;
+        obj.children.forEach((child, ndx) => {
+            const isLast = ndx === lastNdx;
+            dumpObject(child, lines, isLast, newPrefix);
+        });
+        return lines;
+    }
 
     function setupBoundaries() {
         cameraBoundarySystem = setupCameraBoundaries(scene, camera, controls);
@@ -1138,7 +1767,6 @@ function main() {
     }
     document.addEventListener( 'keydown', interactListener);
 
-    // Add hemisphere light
     {
         const skyColor = 0xB1E1FF;
         const groundColor = 0xB97A20;
@@ -1147,7 +1775,6 @@ function main() {
         scene.add(light);
     }
 
-    // Add directional light with GUI controls
     {
         const color = 0xFFFFFF;
         const intensity = 5;
@@ -1244,7 +1871,7 @@ function main() {
         skyBoxFolder.open(); // Optional: opens the folder by default
     }
 
-    // Set up fog with GUI controls
+    // Fog setup
     scene.fog = new THREE.FogExp2(0xbe9fd4, 0.005);
     const fogFolder = gui.addFolder('Fog');
     const fogGUIHelper = new FogGUIHelper(scene.fog, camera);
@@ -1253,54 +1880,179 @@ function main() {
     fogFolder.open();
     updateGUIVisibility();
 
-    // Load the GLTF model
+    // GLTF Model loading with improved error handling
     {
+        const dracoLoader = new DRACOLoader();
+        dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+        dracoLoader.setDecoderConfig({ type: 'js'});
+        dracoLoader.preload();
+
         const gltfLoader = new GLTFLoader();
-        gltfLoader.load(baseURL + 'fairgrounds.gltf', (gltf) => {
-            loadingDiv.style.display = 'none';
-            const root = gltf.scene;
-            
-            // Apply shader modification to all meshes in the scene
-			// Also wanted to note this was done by ChatGPT as well. It was part of the problem
-			// to some degree but not as major, this just helps load the shaders properly
-            root.traverse((child) => {
-                if (child.isMesh && child.material) {
-                    if (Array.isArray(child.material)) {
-                        child.material.forEach(mat => {
-                            mat.onBeforeCompile = ModifyShader;
-                        });
-                    } else {
-                        child.material.onBeforeCompile = ModifyShader;
+        gltfLoader.setDRACOLoader(dracoLoader);
+
+        gltfLoader.load(
+            baseURL + 'fairgrounds.glb',
+            (glb) => {
+                try {
+                    loadingDiv.style.display = 'none';
+                    const root = glb.scene;
+
+                    const updateTextureQuality = setupOptimizedTextureSystem(root, scene, camera);
+                    window.updateTextureQuality = updateTextureQuality;
+
+                    // Enhanced object registration with better road detection
+                    let meshCount = 0;
+                    let roadCount = 0;
+                    const registeredObjects = [];
+
+                    console.log('=== SCANNING FOR OBJECTS ===');
+                    
+                    root.traverse((child) => {
+                        if (child.isMesh && child.material) {
+                            meshCount++;
+                            const name = child.name.toLowerCase();
+                            const isRoad = (
+                                name.includes('roads') ||
+                                name.includes('Plane') ||
+                                // Check if material name suggests it's a road
+                                (child.material && child.material.name && 
+                                child.material.name.toLowerCase().includes('road'))
+                            );
+
+                            let lodOptions = {};
+                            let objectType = 'generic';
+                            // Roads
+                            if (isRoad) {
+                                roadCount++;
+                                objectType = 'road';
+                                
+                                lodOptions = {
+                                    allowCulling: false, 
+                                    useLOD: true,
+                                    lodDistances: {
+                                        high: 200,  
+                                        medium: 500,  
+                                        low: 1000,  
+                                        cull: 2000    
+                                    }
+                                };
+                            }
+                            // Buildings and large structures
+                            else if (name.includes('building') || 
+                                    name.includes('structure') ||
+                                    name.includes('house') ||
+                                    name.includes('tower')) {
+                                objectType = 'building';
+                                lodOptions = {
+                                    lodDistances: {
+                                        high: 40,
+                                        medium: 100,
+                                        low: 200,
+                                        cull: 400
+                                    }
+                                };
+                            }
+                            // Small details and decorations
+                            else if (name.includes('detail') || 
+                                    name.includes('decoration') ||
+                                    name.includes('prop') ||
+                                    name.includes('ornament')) {
+                                objectType = 'detail';
+                                lodOptions = {
+                                    lodDistances: {
+                                        high: 30,
+                                        medium: 80,
+                                        low: 150,
+                                        cull: 300
+                                    }
+                                };
+                            }
+                            // Terrain and ground objects
+                            else if (name.includes('ground') || 
+                                    name.includes('terrain') ||
+                                    name.includes('landscape')) {
+                                objectType = 'terrain';
+                                lodOptions = {
+                                    allowCulling: false, 
+                                    lodDistances: {
+                                        high: 100,
+                                        medium: 300,
+                                        low: 600,
+                                        cull: 1200
+                                    }
+                                };
+                            }
+                            
+                            // Register the object with the LOD manager
+                            try {
+                                const objectId = window.cullingLODManager.registerObject(child, lodOptions);
+                                registeredObjects.push({
+                                    id: objectId,
+                                    name: child.name,
+                                    type: objectType,
+                                    options: lodOptions
+                                });
+                            } catch (error) {
+                                console.error(`Failed to register object "${child.name}":`, error);
+                            }
+
+                            // Apply fog shaders with better error handling
+                            try {
+                                const materials = Array.isArray(child.material) ? child.material : [child.material];
+                                materials.forEach((mat, index) => {
+                                    if (isFogCompatibleMaterial(mat)) {
+                                        mat.onBeforeCompile = ModifyShader;
+                                    } else {
+                                        console.log(`Skipped fog shader for ${child.name} material ${index} (incompatible type: ${mat.type})`);
+                                    }
+                                });
+                            } catch (error) {
+                                console.warn(`Failed to apply shader to "${child.name}":`, error);
+                            }
+                        }
+                    });
+
+                    // Summary logging
+                    console.log('=== REGISTRATION SUMMARY ===');
+                    console.log(`Total meshes found: ${meshCount}`);
+                    console.log(`Roads detected: ${roadCount}`);
+                    console.log(`Objects registered: ${registeredObjects.length}`);
+
+                    scene.add(root);
+                    console.log(dumpObject(root).join('\n'));
+                    
+                    setupBoundaries();
+                    blocker.style.display = '';
+                    instructions.style.display = '';
+
+                    dracoLoader.dispose();
+                    
+                } catch (error) {
+                    console.error('Error processing loaded model:', error);
+                    loadingDiv.textContent = 'Error processing model. Check console for details.';
+                    loadingDiv.style.background = 'rgba(255,0,0,0.7)';
+
+                    dracoLoader.dispose();
+                }
+            },
+            (xhr) => {
+                if (xhr.lengthComputable) {
+                    const percentComplete = Math.round((xhr.loaded / xhr.total) * 100);
+                    loadingDiv.textContent = `Loading model (${percentComplete}%)...`;
+                    if (blocker.style.display === '' && instructions.style.display === '') {
+                        instructions.style.display = 'none';
+                        blocker.style.display = 'none';
                     }
                 }
-            });
-            
-            scene.add(root);
-			console.log(dumpObject(root).join('\n'));
-			
-            // controls.update();
+            },
+            (error) => {
+                loadingDiv.textContent = 'Error loading model. Check console for details.';
+                loadingDiv.style.background = 'rgba(255,0,0,0.7)';
+                console.error('Error loading model:', error);
 
-            setupBoundaries();
-            blocker.style.display = '';
-            instructions.style.display = '';
-        },
-        (xhr) => {
-            // Progress callback
-            if (xhr.lengthComputable) {
-                const percentComplete = Math.round((xhr.loaded / xhr.total) * 100);
-                loadingDiv.textContent = `Loading model (${percentComplete}%)...`;
-                if (blocker.style.display === '' && instructions.style.display === ''){
-                    instructions.style.display = 'none';
-                    blocker.style.display = 'none';
-                }
+                dracoLoader.dispose();
             }
-        },
-        (error) => {
-            // Error callback
-            loadingDiv.textContent = 'Error loading model. Check console for details.';
-            loadingDiv.style.background = 'rgba(255,0,0,0.7)';
-            console.error('Error loading model:', error);
-        });
+        );
 
     }
 
@@ -1320,69 +2072,96 @@ function main() {
     let previousTime = null;
 
     function render(time) {
-        // Update fog time for shaders
-        if (previousTime === null) {
-            previousTime = time;
-        }
-        const timeElapsed = (time - previousTime) * 0.001;
-        totalTime += timeElapsed;
-        previousTime = time;
-        
-        // Update fog time in all shaders
-        for (let s of shaders) {
-            s.uniforms.fogTime.value = totalTime;
-        }
-
-        const pointLockTime = performance.now();
-
-        if ( controls.isLocked === true && !isGUIMode) {
-            theaterSphere.checkForIntersection(camera);
-            cleanersSphere.checkForIntersection(camera);
-            dominosSphere.checkForIntersection(camera);
-            recordsSphere.checkForIntersection(camera);
-            let theCameraInside = (theaterSphere.cameraInside || cleanersSphere.cameraInside || dominosSphere.cameraInside || recordsSphere.cameraInside) ? true : false;
-            if (theCameraInside) {
-                document.getElementById('interactionBlocker').style.display = 'block';
-                document.getElementById('interactDesc').style.display = 'flex';
-            } else if (document.getElementById('interactionBlocker').style.display === 'block' && !theCameraInside) {
-                document.getElementById('interactionBlocker').style.display = 'none';
-                document.getElementById('interactDesc').style.display = 'none';
+        try {
+            if (!controls.isLocked && !isGUIMode) {
+                velocity.set(0, 0, 0);
+                direction.set(0, 0, 0);
+                requestAnimationFrame(render);
+                return;
             }
+
+            // Update fog time for shaders
+            if (previousTime === null) {
+                previousTime = time;
+            }
+            const timeElapsed = (time - previousTime) * 0.001;
+            totalTime += timeElapsed;
+            previousTime = time;
+            
+            // Update fog time in all shaders with error handling
+            for (let s of shaders) {
+                try {
+                    if (s.uniforms && s.uniforms.fogTime) {
+                        s.uniforms.fogTime.value = totalTime;
+                    }
+                } catch (error) {
+                    console.warn('Error updating shader uniform:', error);
+                }
+            }
+
+            const pointLockTime = performance.now();
+
+            if ( controls.isLocked === true && !isGUIMode) {
+                theaterSphere.checkForIntersection(camera);
+                cleanersSphere.checkForIntersection(camera);
+                dominosSphere.checkForIntersection(camera);
+                recordsSphere.checkForIntersection(camera);
+                let theCameraInside = (theaterSphere.cameraInside || cleanersSphere.cameraInside || dominosSphere.cameraInside || recordsSphere.cameraInside) ? true : false;
+                if (theCameraInside) {
+                    document.getElementById('interactionBlocker').style.display = 'block';
+                    document.getElementById('interactDesc').style.display = 'flex';
+                } else if (document.getElementById('interactionBlocker').style.display === 'block' && !theCameraInside) {
+                    document.getElementById('interactionBlocker').style.display = 'none';
+                    document.getElementById('interactDesc').style.display = 'none';
+                }
+            }
+
+            if ( controls.isLocked === true || isGUIMode  && !PopupManager.popUpActive && !guiFocused){
+                const delta = (time - prevTime) / 1000;
+
+                velocity.x -= velocity.x * 10.0 * delta;
+                velocity.z -= velocity.z * 10.0 * delta;
+
+                direction.z = Number(moveForward) - Number(moveBackward);
+                direction.x = Number(moveRight) - Number(moveLeft);
+                direction.normalize();
+
+                if (moveForward || moveBackward) velocity.z -= direction.z * 100.0 * delta;
+                if (moveLeft || moveRight) velocity.x -= direction.x * 100.0 * delta;
+
+                controls.moveRight(-velocity.x * delta);
+                controls.moveForward(-velocity.z * delta);
+            } else {
+                velocity.set(0, 0, 0);
+                direction.set(0, 0, 0);
+            }
+
+            if (window.cullingLODManager) {
+                window.cullingLODManager.update();
+            }
+
+            if (time % 3 === 0) {
+                if (window.updateTextureQuality) {
+                    try {
+                        window.updateTextureQuality();
+                    } catch (error) {
+                        console.warn('Error updating texture quality:', error);
+                    }
+                }
+            }
+
+            prevTime = pointLockTime;
+
+            if (resizeRendererToDisplaySize(renderer)) {
+                const canvas = renderer.domElement;
+                camera.aspect = canvas.clientWidth / canvas.clientHeight;
+                camera.updateProjectionMatrix();
+            }
+
+            renderer.render(scene, camera);
+        } catch (error) {
+            console.error('Render loop error:', error);
         }
-
-        if ( controls.isLocked === true || isGUIMode  && !PopupManager.popUpActive && !guiFocused){
-
-            const delta = ( time - prevTime ) / 1000;
-
-            velocity.x -= velocity.x * 10.0 * delta;
-            velocity.z -= velocity.z * 10.0 * delta;
-
-            direction.z = Number( moveForward ) - Number( moveBackward );
-            direction.x = Number( moveRight ) - Number( moveLeft );
-            direction.normalize();
-
-            if ( moveForward || moveBackward ) velocity.z -= direction.z * 100.0 * delta;
-            if ( moveLeft || moveRight ) velocity.x -= direction.x * 100.0 * delta;
-
-            controls.moveRight( - velocity.x * delta );
-            controls.moveForward( - velocity.z * delta );
-
-        } else {
-            velocity.set(0, 0, 0);
-            direction.set(0, 0, 0);
-        }
-
-        prevTime = pointLockTime;
-
-		if(resizeRendererToDisplaySize(renderer) ) {
-			// Adjust the camera for this aspect
-			const canvas = renderer.domElement;
-			camera.aspect = canvas.clientWidth / canvas.clientHeight;
-			camera.updateProjectionMatrix();
-		}
-	
-		// Render
-		renderer.render(scene, camera);
 
         requestAnimationFrame(render);
     }
