@@ -961,6 +961,7 @@ class boundaryBox {
             opacity: 0.2
         });
 
+
         this.boundaryBox = null;
 
         this.worldToLocal = new THREE.Matrix4();
