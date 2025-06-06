@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { Euler }  from 'three';
 
 const _NOISE_GLSL = `
 //
@@ -765,6 +766,7 @@ class MinMaxGUIHelper {
     }
 }
 
+//This is the color gui for the directional light
 class ColorGUIHelper {
     constructor(object, prop) {
         this.object = object;
@@ -778,6 +780,7 @@ class ColorGUIHelper {
     }
 }
 
+//This is the gui for fog to control legit everything
 class FogGUIHelper {
     constructor(fog, camera) {
         this.fog = fog;
@@ -811,10 +814,145 @@ class FogGUIHelper {
     }
 }
 
+//The object for the popUp mainly its detection circle
+class popUpCircle {
+    constructor(posX, posY, posZ, radius) {
+
+        this.cameraInside = false;
+
+        this.position = new THREE.Vector3(posX, posY, posZ);
+
+        this.geometryRadius = radius;
+
+        this.circleObject = null;
+    }
+
+    createSphereRadius(scene) {
+        if(this.circleObject) scene.remove(this.circleObject);
+
+        const newSphereMaterial = new THREE.MeshBasicMaterial({
+            color: 0x00C6FF,
+            opacity: 0.5,
+            transparent: true,
+            wireframe: true,
+        });
+
+        const geometry = new THREE.CircleGeometry(this.geometryRadius);
+
+        this.circleObject = new THREE.Mesh(geometry, newSphereMaterial);
+        this.circleObject.position.set(this.position.x, this.position.y, this.position.z);
+        this.circleObject.rotation.x = (90 * Math.PI) / 180;
+
+        scene.add(this.circleObject);
+        return(this.circleObject);
+    }
+
+    checkForIntersection(camera) {
+        const cameraPosition = new THREE.Vector3();
+        camera.getWorldPosition(cameraPosition);
+
+        const sphereCenter = this.circleObject.position.clone();
+
+        const distance = cameraPosition.distanceTo(sphereCenter);
+
+        if (distance < this.geometryRadius) {
+            this.cameraInside = true;
+        } else if ( distance >= this.geometryRadius) {
+            this.cameraInside = false;
+        }
+    }
+}
+
+// Pop Up Object functionality
+const PopupManager = {
+
+    overlay: document.getElementById('popup'),
+    container: document.querySelector('.popup-container'),
+    title: document.getElementById('popup-title'),
+    content: document.getElementById('popup-content'),
+
+    popUpActive: false,
+
+    // This just unhides the pop up nothing special
+    show: function(title = 'Popup', content = '') {
+
+        this.title.textContent = title;
+
+        this.content.innerHTML = content;
+
+        this.overlay.style.display = 'block';
+        this.overlay.classList.add('show');
+        this.container.classList.add('show');
+
+        document.body.style.overflow = 'hidden';
+        document.body.style.cursor = 'default';
+    },
+
+    // self explanatory...
+    hide: function() {
+
+        this.overlay.classList.remove('show');
+        this.container.classList.remove('show');
+
+        setTimeout(() => {
+            this.overlay.style.display = 'none';
+        }, 300);
+
+        document.body.style.overflow = 'auto';
+
+        document.body.style.cursor = 'none';
+    },
+
+    // This basically is where it defines if it is a image or text pop up. Can be edited to do anything tbh
+    generatePopup: function(title, config) {
+        let content = '';
+
+        if (config.text) {
+            content += `<p>${config.text}</p>`;
+        }
+
+        if (config.image) {
+            content += `<img src="${config.image.src}" alt="${config.image.alt || ''}">`;
+            if (config.image.caption) {
+                content += `<p><em>${config.image.caption}</em></p>`;
+            }
+        }
+
+        if (config.html) {
+            content += config.html;
+        }
+        
+        this.show(title, content);
+    }
+};
+
+function closePopup() {
+    setTimeout(() => {
+        PopupManager.hide();
+    }, 300);
+    PopupManager.popUpActive = false;
+}
+
+//This is the barrier box object
 class boundaryBox {
     constructor(minX, maxX, minY, maxY, minZ, maxZ) {
         this.min = new THREE.Vector3(minX, minY, minZ);
         this.max = new THREE.Vector3(maxX, maxY, maxZ);
+
+        this.center = new THREE.Vector3(
+            (minX + maxX) / 2,
+            (minY + maxY) / 2,
+            (minZ + maxZ) / 2
+        );
+
+        this.rotationParams = {
+            x: 0,
+            y: (-2 * Math.PI) / 180,
+            z: 0,
+            xDegrees: 0,
+            yDegrees: -2,
+            zDegrees: 0
+        };
 
         this.visualizationMaterial = new THREE.MeshBasicMaterial({
             color: 0x00ff00,
@@ -822,7 +960,63 @@ class boundaryBox {
             transparent: true,
             opacity: 0.2
         });
+
         this.boundaryBox = null;
+
+        this.worldToLocal = new THREE.Matrix4();
+        this.localToWorld = new THREE.Matrix4();
+        this.updateTransformationMatrices();
+    }
+
+    updateRotation() {
+        this.boundaryBox.rotation.x = this.rotationParams.x;
+        this.boundaryBox.rotation.y = this.rotationParams.y;
+        this.boundaryBox.rotation.z = this.rotationParams.z;
+
+        this.updateTransformationMatrices();
+    }
+
+    // I will be so real, the rotation got so complex so quick,
+    // I didnt even realize it was going to need linear algebra to properly rotate it
+    // I havent even taken that yet, and I had claude try and teach me it and my brain hurt really bad.
+    // I asked him why the boundary box visualization was rotating but the boundary itself wasnt.
+    // Then I got a lecture on linear algebra and it hurt my brain.
+    // This method creates the mathematical relationship between world coordinates
+    // and the boundary box's local coordinate system
+    updateTransformationMatrices() {
+        // Create rotation matrix from our rotation parameters
+        const rotationMatrix = new THREE.Matrix4();
+        rotationMatrix.makeRotationFromEuler(new THREE.Euler(
+            this.rotationParams.x,
+            this.rotationParams.y,
+            this.rotationParams.z,
+            'XYZ'
+        ));
+        
+        // Create translation matrix to move to/from the boundary center
+        const centerTranslation = new THREE.Matrix4();
+        centerTranslation.makeTranslation(-this.center.x, -this.center.y, -this.center.z);
+        
+        const centerTranslationInverse = new THREE.Matrix4();
+        centerTranslationInverse.makeTranslation(this.center.x, this.center.y, this.center.z);
+        
+        // World to Local: translate to origin, then apply inverse rotation
+        this.worldToLocal.multiplyMatrices(rotationMatrix.clone().invert(), centerTranslation);
+        
+        // Local to World: apply rotation, then translate back
+        this.localToWorld.multiplyMatrices(centerTranslationInverse, rotationMatrix);
+    }
+
+    setRotationDegrees(x, y, z) {
+        this.rotationParams.xDegrees = x;
+        this.rotationParams.yDegrees = y;
+        this.rotationParams.zDegrees = z;
+
+        this.rotationParams.x = (x * Math.PI) / 180;
+        this.rotationParams.y = (y * Math.PI) / 180;
+        this.rotationParams.z = (z * Math.PI) / 180;
+
+        this.updateRotation();
     }
 
     // Create a visible box to represent the boundary (for debugging)
@@ -841,24 +1035,58 @@ class boundaryBox {
         (this.max.y + this.min.y) / 2,
         (this.max.z + this.min.z) / 2
         );
-        
+
+        this.updateRotation();
         scene.add(this.boundaryBox);
         return this.boundaryBox;
     }
 
-    isInBounds(position) {
+    // Transform a world position into the boundary box's local coordinate system
+    worldToLocalPosition(worldPosition) {
+        const localPosition = worldPosition.clone();
+        localPosition.applyMatrix4(this.worldToLocal);
+        return localPosition;
+    }
+    
+    // Transform a local position back to world coordinates
+    localToWorldPosition(localPosition) {
+        const worldPosition = localPosition.clone();
+        worldPosition.applyMatrix4(this.localToWorld);
+        return worldPosition;
+    }
+
+    // Check if a position is within bounds, accounting for rotation
+    isInBounds(worldPosition) {
+        // Convert world position to local coordinate system
+        const localPosition = this.worldToLocalPosition(worldPosition);
+        
+        // Now check bounds in the local coordinate system
+        // In local space, our bounds are always axis-aligned
+        const localMin = this.min.clone().sub(this.center);
+        const localMax = this.max.clone().sub(this.center);
+        
         return (
-            position.x >= this.min.x && position.x <= this.max.x &&
-            position.y >= this.min.y && position.y <= this.max.y &&
-            position.z >= this.min.z && position.z <= this.max.z
+            localPosition.x >= localMin.x && localPosition.x <= localMax.x &&
+            localPosition.y >= localMin.y && localPosition.y <= localMax.y &&
+            localPosition.z >= localMin.z && localPosition.z <= localMax.z
         );
     }
 
-    clampPosition(position) {
-        position.x = Math.max(this.min.x, Math.min(this.max.x, position.x));
-        position.y = Math.max(this.min.y, Math.min(this.max.y, position.y));
-        position.z = Math.max(this.min.z, Math.min(this.max.z, position.z));
-        return position;
+    // Clamp a position to stay within bounds, accounting for rotation
+    clampPosition(worldPosition) {
+        // Convert to local coordinates
+        const localPosition = this.worldToLocalPosition(worldPosition);
+        
+        // Clamp in local space where bounds are axis-aligned
+        const localMin = this.min.clone().sub(this.center);
+        const localMax = this.max.clone().sub(this.center);
+        
+        localPosition.x = Math.max(localMin.x, Math.min(localMax.x, localPosition.x));
+        localPosition.y = Math.max(localMin.y, Math.min(localMax.y, localPosition.y));
+        localPosition.z = Math.max(localMin.z, Math.min(localMax.z, localPosition.z));
+        
+        // Convert back to world coordinates
+        return this.localToWorldPosition(localPosition);
     }
 
     // This function for this class was made by claude 
@@ -870,15 +1098,15 @@ class boundaryBox {
     constrainCamera(camera, previousPosition = null) {
         // Check if the current camera position is within bounds
         if (!this.isInBounds(camera.position)) {
-        if (previousPosition && this.isInBounds(previousPosition)) {
-            // If we have a previous valid position, revert to it
-            camera.position.copy(previousPosition);
-        } else {
-            // Otherwise, clamp to the nearest valid position
-            const clampedPos = this.clampPosition(camera.position);
-            camera.position.copy(clampedPos);
-        }
-        return true; // Bounds were enforced
+            if (previousPosition && this.isInBounds(previousPosition)) {
+                // If we have a previous valid position, revert to it
+                camera.position.copy(previousPosition);
+            } else {
+                // Otherwise, clamp to the nearest valid position
+                const clampedPos = this.clampPosition(camera.position);
+                camera.position.copy(clampedPos);
+            }
+            return true; // Bounds were enforced
         }
         return false; // No bounds enforcement was necessary
     }
@@ -902,6 +1130,7 @@ function setupCameraBoundaries(scene, camera, controls) {
   // Original moveRight and moveForward functions
   const originalMoveRight = controls.moveRight;
   const originalMoveForward = controls.moveForward;
+  const originalMouseMove = controls.onMouseMove;
   
   // Override the movement functions to add boundary checks
   controls.moveRight = function(distance) {
@@ -925,22 +1154,90 @@ function setupCameraBoundaries(scene, camera, controls) {
     // Check if new position is valid
     boundary.constrainCamera(camera, lastValidPosition);
   };
+
+  controls.onMouseMove = function(event) {
+    if ( middleMouseClicked ) {
+        return;
+    }
+
+    originalMouseMove.call(this, event);
+  }
   
   return boundary;
 }
 
+const informationArray = [
+    // This is the sample for the popUps, you can use these however you want. 
+    // I am hoping maybe in the future I could setup like a gallery type popup
+    // that has multiple images that you can scroll through or maybe
+    // a fully custom popup that can be designed anyway you want 
+    // text: '',
+    // image: {
+    //     src: '',
+    //     alt: '',
+    //     caption: ''
+    // },
+    // html: 
+    {
+        text: 'Hopefully I can get this to work',
+        image: {
+            src: 'https://picsum.photos/350/200',
+            alt: 'Filler Image',
+            caption: 'Cool images'
+        },
+        html: '<p><strong>This is a test!</strong></p>'
+    },
+    {
+        text: 'Bill\'s Cleaners is cool',
+        image: {
+            src: 'https://picsum.photos/350/200',
+            alt: 'Filler Image',
+            caption: 'Cool images'
+        },
+        html: '<p><strong>Heard he was good at bowling!</strong></p>'
+    },
+    {
+        text: 'Pool, Beer, and Dominos!',
+        image: {
+            src: 'https://picsum.photos/350/200',
+            alt: 'Filler Image',
+            caption: 'Cool images'
+        },
+        html: '<p><strong>The fan was a pain I heard</strong></p>'
+    },
+    {
+        text: 'Records!',
+        image: {
+            src: 'https://picsum.photos/350/200',
+            alt: 'Filler Image',
+            caption: 'Cool images'
+        },
+        html: '<p><strong>Lots of goooood music here</strong></p>'
+    }
+]
+
 function main() {
+
     // Set up the custom shader chunks FIRST, before any materials are created
     setupCustomFogShaders(); // Use the fixed version from above
+
     
     const canvas = document.querySelector('#c');
     const renderer = new THREE.WebGLRenderer({ antialias: true, canvas });
     const baseURL = 'https://storage.googleapis.com/fairgrounds-model/';
 
+    let skyBoxTextures;
+
     let moveForward = false;
     let moveBackward = false;
     let moveLeft = false;
     let moveRight = false;
+
+    let isGUIMode = false;
+    let guiFocused = false;
+
+    let cameraEuler = new Euler( 0, 0, 0, 'YXZ' );
+
     let cameraBoundarySystem;
     let prevTime = performance.now();
     const velocity = new THREE.Vector3();
@@ -960,8 +1257,9 @@ function main() {
     loadingDiv.textContent = 'Loading model (0%)...';
     document.body.appendChild(loadingDiv);
 
-    const blocker = document.getElementById('blocker');
-    const instructions = document.getElementById('instructions');
+    const blocker = document.getElementById( 'blocker' );
+    const instructions = document.getElementById( 'instructions' );
+    let instructionsActive = true;
 
     // Camera setup
     const fov = 55;
@@ -1015,26 +1313,171 @@ function main() {
 
     // Pointer lock controls
     const controls = new PointerLockControls(camera, canvas);
+    controls.maxPolarAngle = (120 * Math.PI) / 180;
+    controls.minPolarAngle = (60 * Math.PI) / 180;
 
-    instructions.addEventListener('click', function () {
-        controls.lock();
+    instructions.addEventListener( 'click', function () {
+        if (!isGUIMode && !PopupManager.popUpActive) {
+            controls.lock();
+            instructionsActive = false;
+            instructions.style.display = 'none';
+            blocker.style.display = 'none';
+        }
+    });
+
+    document.getElementById('popup').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closePopup();
+            controls.lock();
+            PopupManager.popUpActive = false;
+        }
+    });
+
+    document.getElementById('popup-close-btn').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closePopup();
+            controls.lock();
+            PopupManager.popUpActive = false;
+        }
+    });
+
+    controls.addEventListener( 'unlock', function () {
+        controls.unlock();
+        console.log('Controls have been unlocked');
+        if(!isGUIMode && !PopupManager.popUpActive ) {
+            instructionsActive = true;
+            instructions.style.display = '';
+            blocker.style.display = '';
+            document.getElementById('interactionBlocker').style.display = 'none';
+            document.getElementById('interactDesc').style.display = 'none';
+        }
     });
 
     controls.addEventListener('lock', function () {
-        instructions.style.display = 'none';
-        blocker.style.display = 'none';
+        console.log('controls have been locked');
+    })
+
+    scene.add( controls.object );
+
+    function toggleGUIMode() {
+        isGUIMode = !isGUIMode;
+
+        if ( isGUIMode && !instructionsActive && !PopupManager.popUpActive ) {
+            if ( controls.isLocked ) {
+                controls.unlock();
+            }
+            console.log('GUI Mode: Activated - Mouse is now free for GUI interaction');
+            updateGUIVisibility();
+        } else if(!instructionsActive && !PopupManager.popUpActive ) {  
+            blurAllGUIElements();
+            controls.lock();
+            console.log('GUID Mode: Deactivated - Camera Controls active');
+            updateGUIVisibility();
+        }
+    }
+
+    function blurAllGUIElements() {
+        if (document.activeElement && document.activeElement !== document.body) {
+            document.activeElement.blur();
+        }
+        
+        const guiInputs = document.querySelectorAll('.lil-gui input, .lil-gui select, .lil-gui button');
+        guiInputs.forEach(element => {
+            if (element === document.activeElement) {
+                element.blur();
+            }
+        });
+        
+        canvas.focus();
+    }
+
+    function updateGUIVisibility() {
+        const guiElements = document.querySelectorAll('.lil-gui');
+        guiElements.forEach(element => {
+            if (isGUIMode) {
+                element.style.pointerEvents = 'auto';
+                element.style.opacity = '1';
+                document.getElementById('interactionBlocker').style.display = 'none';
+                document.getElementById('interactDesc').style.display = 'none';
+            } else {
+                element.style.pointerEvents = 'none';
+                element.style.opacity = '0.3';
+            }
+        });
+
+        document.body.style.cursor = isGUIMode ? 'default' : 'none';
+    }
+
+    function resetMovementState() {
+        moveForward = false;
+        moveBackward = false;
+        moveLeft = false;
+        moveRight = false;
+        velocity.set(0, 0, 0);
+        direction.set(0, 0, 0);
+    }
+
+    // Function to check if an element is a GUI element 
+    function isGUIElement(element) {
+        while (element && element !== document.body) {
+            if (element.matches('input[type="range"]') || 
+                element.classList.contains('slider') ||
+                element.classList.contains('range')) {
+                return false; 
+            }
+            if (element.matches('.lil-gui, .lil-gui *, .dg, .dg *')) {
+                return true;
+            }
+            if (element.classList && (
+                element.classList.contains('lil-gui') ||
+                element.classList.contains('controller') ||
+                element.classList.contains('title') ||
+                element.classList.contains('folder') ||
+                element.classList.contains('dg') ||
+                element.classList.contains('property-name') ||
+                element.classList.contains('c')
+            )) {
+                return true;
+            }
+            element = element.parentElement;
+        }
+        return false;
+    }
+
+    document.addEventListener('focusout', (event) => {
+        console.log('Unfocus target:', event.target);
+        
+        if (isGUIElement(event.target)) {
+            console.log('GUI element unfocused');
+            guiFocused = false;
+
+            setTimeout(() => {
+                if (!guiFocused) {
+                    resetMovementState();
+                    console.log('Movement state reset after GUI unfocus');
+                }
+            }, 50);
+        }
     });
 
-    controls.addEventListener('unlock', function () {
-        instructions.style.display = '';
-        blocker.style.display = '';
+    document.addEventListener('focusin', (event) => {
+        console.log('Focus target:', event.target);
+        
+        if (isGUIElement(event.target)) {
+            console.log('GUI element focused - stopping movement');
+            guiFocused = true;
+            
+            // Reset all movement
+            resetMovementState();
+        }
     });
 
-    scene.add(controls.object);
+    //This is the movement event function for the keys when they go up and down
+    const onKeyDown = function ( event ) {
 
-    // Movement event handlers
-    const onKeyDown = function (event) {
-        switch (event.code) {
+        if (guiFocused) return;
+
+        switch ( event.code ) {
             case 'ArrowUp':
             case 'KeyW':
                 moveForward = true;
@@ -1054,8 +1497,26 @@ function main() {
         }
     };
 
-    const onKeyUp = function (event) {
+    const rotateTheCamera = function ( event ) {
+        if (guiFocused) return;
+
         switch (event.code) {
+            case isGUIMode && 'KeyQ':
+                cameraEuler.setFromQuaternion(camera.quaternion);
+                cameraEuler.y -= -0.01 * 0.5 * 2;
+                camera.quaternion.setFromEuler(cameraEuler);
+                break;
+
+            case isGUIMode && 'KeyE':
+                cameraEuler.setFromQuaternion(camera.quaternion);
+                cameraEuler.y -= 0.01 * 0.5 * 2;
+                camera.quaternion.setFromEuler(cameraEuler);
+                break;
+        }
+    }
+    const onKeyUp = function ( event ) {
+
+        switch ( event.code ) {
             case 'ArrowUp':
             case 'KeyW':
                 moveForward = false;
@@ -1075,8 +1536,33 @@ function main() {
         }
     };
 
-    document.addEventListener('keydown', onKeyDown);
-    document.addEventListener('keyup', onKeyUp);
+    document.addEventListener( 'keydown', onKeyDown );
+    document.addEventListener( 'keyup', onKeyUp );
+    document.addEventListener( 'keydown', rotateTheCamera);
+
+    document.addEventListener('mousedown', (event) => {
+        if (event.button === 1) {
+            event.preventDefault();
+            toggleGUIMode();
+            return;
+        }
+
+        if (isGUIElement(event.target)) {
+            console.log('GUI element clicked:', event.target);
+            guiFocused = true;
+            resetMovementState();
+        }
+    });
+
+    document.addEventListener('mousedown', (event) => {
+        if (event.target === canvas || !isGUIElement(event.target)) {
+            if (guiFocused) {
+                console.log('Clicked outside GUI - clearing focus state');
+                guiFocused = false;
+                resetMovementState();
+            }
+        }
+    });
 
     const cullingLODManager = setupOptimizedRendering(scene, camera, renderer);
     
@@ -1153,10 +1639,133 @@ function main() {
         boundaryFolder.add(cameraBoundarySystem.max, 'x', -100, 0).name('Max X');
         boundaryFolder.add(cameraBoundarySystem.min, 'z', -150, 0).name('Min Z');
         boundaryFolder.add(cameraBoundarySystem.max, 'z', 0, 150).name('Max Z');
+        // This is what claude created to setup the rotation GUI
+        // Add rotation controls using degrees (more user-friendly)
+        // The key insight here is that we're directly manipulating the object's properties
+        // and then calling updateRotation() whenever a value changes
+        boundaryFolder.add(cameraBoundarySystem.rotationParams, 'xDegrees', -180, 180, 1)
+            .name('X Rotation (°)')
+            .onChange((value) => {
+                // Convert degrees to radians and update the object
+                cameraBoundarySystem.rotationParams.x = (value * Math.PI) / 180;
+                cameraBoundarySystem.updateRotation();
+            });
+        
+        boundaryFolder.add(cameraBoundarySystem.rotationParams, 'yDegrees', -180, 180, 1)
+            .name('Y Rotation (°)')
+            .onChange((value) => {
+                cameraBoundarySystem.rotationParams.y = (value * Math.PI) / 180;
+                cameraBoundarySystem.updateRotation();
+            });
+        
+        boundaryFolder.add(cameraBoundarySystem.rotationParams, 'zDegrees', -180, 180, 1)
+            .name('Z Rotation (°)')
+            .onChange((value) => {
+                cameraBoundarySystem.rotationParams.z = (value * Math.PI) / 180;
+                cameraBoundarySystem.updateRotation();
+            });
         boundaryFolder.open();
     }
 
-    // Lighting setup
+    // Intersection pop Circles!
+    const popCirclesGUI = gui.addFolder('Popup Circles');
+    const theaterGUI = popCirclesGUI.addFolder('Theater Circle');
+    const cleanersGUI = popCirclesGUI.addFolder('Bills Circle');
+    const dominosGUI = popCirclesGUI.addFolder('Dominos Circle');
+    const recordsGUI = popCirclesGUI.addFolder('Records Circle')
+
+    // Theater circle Intersection popup
+    const theaterSphere = new popUpCircle(-32, 31, 7, 8);
+    theaterSphere.createSphereRadius(scene);
+    theaterGUI.add(theaterSphere.position, 'x', -50, 50, 1).onChange((value) => {
+        if ( theaterSphere.circleObject) {
+            theaterSphere.circleObject.position.x = value;
+        }
+    });
+    theaterGUI.add(theaterSphere.position, 'z', -20, 20, 1).onChange((value) => {
+        if ( theaterSphere.circleObject) {
+            theaterSphere.circleObject.position.z = value;
+        }
+    });
+    // Bills Cleaners
+    const cleanersSphere = new popUpCircle(-35, 31, 32, 4);
+    cleanersSphere.createSphereRadius(scene);
+    cleanersGUI.add(cleanersSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
+        if ( cleanersSphere.circleObject) {
+            cleanersSphere.circleObject.position.x = value;
+        }
+    });
+    cleanersGUI.add(cleanersSphere.position, 'z', -20, 60, 0.1).onChange((value) => {
+        if ( cleanersSphere.circleObject) {
+            cleanersSphere.circleObject.position.z = value;
+        }
+    });
+    // Dominos place with THE FAN
+    const dominosSphere = new popUpCircle(-35.2, 31, 57.8, 3);
+    dominosSphere.createSphereRadius(scene);
+    dominosGUI.add(dominosSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
+        if ( dominosSphere.circleObject) {
+            dominosSphere.circleObject.position.x = value;
+        }
+    });
+    dominosGUI.add(dominosSphere.position, 'z', -20, 60, 0.1).onChange((value) => {
+        if ( dominosSphere.circleObject) {
+            dominosSphere.circleObject.position.z = value;
+        }
+    });
+    // Records Shop, good music bruh
+    const recordsSphere = new popUpCircle(-36, 31, 63, 2);
+    recordsSphere.createSphereRadius(scene);
+    recordsGUI.add(recordsSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
+        if ( recordsSphere.circleObject) {
+            recordsSphere.circleObject.position.x = value;
+        }
+    });
+    recordsGUI.add(recordsSphere.position, 'z', -20, 100, 0.1).onChange((value) => {
+        if ( recordsSphere.circleObject) {
+            recordsSphere.circleObject.position.z = value;
+        }
+    });
+
+    popCirclesGUI.open();
+
+    const interactListener = function ( event ) {
+        if (isGUIMode || instructionsActive) return;
+
+        switch (event.code) {
+            case 'KeyF':
+                console.log('Interacted!');
+                if (theaterSphere.cameraInside) {
+                    PopupManager.popUpActive  = true;
+                    PopupManager.generatePopup('Theater', informationArray[0]);
+                    controls.unlock();
+                    event.preventDefault();
+                    break;
+                }else if (cleanersSphere.cameraInside) {
+                    PopupManager.popUpActive  = true;
+                    PopupManager.generatePopup('Bills Cleaners', informationArray[1]);
+                    controls.unlock();
+                    event.preventDefault();
+                    break;
+                }else if (dominosSphere.cameraInside) {
+                    PopupManager.popUpActive  = true;
+                    PopupManager.generatePopup('Pool Dominos', informationArray[2]);
+                    controls.unlock();
+                    event.preventDefault();
+                    break;
+                }else if (recordsSphere.cameraInside) {
+                    PopupManager.popUpActive  = true;
+                    PopupManager.generatePopup('Record Shop', informationArray[3]);
+                    controls.unlock();
+                    event.preventDefault();
+                    break;
+                } else {
+                    break; 
+                }  
+        }
+    }
+    document.addEventListener( 'keydown', interactListener);
+
     {
         const skyColor = 0xB1E1FF;
         const groundColor = 0xB97A20;
@@ -1177,38 +1786,88 @@ function main() {
         lightFolder.addColor(new ColorGUIHelper(light, 'color'), 'value').name('color');
         lightFolder.add(light, 'intensity', 0, 5, 0.01);
         lightFolder.open();
+
     }
 
-    // Skybox setup with error handling
+    // Add skybox and GUI Controls
+    // I had claude help me figure out what was going wrong. 
+    // For some reason even though my code is almost the exact same as his
+    // Mine couldnt read the currentSkybox variable, and the min I pasted his into the
+    // code it worked perfectly fine.
+    let skySphereMesh;
     {
-        const loader = new THREE.TextureLoader();
-        const imagePath = '../public/skybox/Panorama_Sky_23-512x512.png';
+        let loader = new THREE.TextureLoader();
+        skyBoxTextures = {
+            pinkSky: loader.load('../public/skybox/pink_sunset.png'),
+            blueSky: loader.load('../public/skybox/blue_sky.png'),
+            nightSky: loader.load('../public/skybox/night_sky.png'),
+            okcSunset: loader.load('../public/skybox/oklahoma_sunset.png')
+        }
+        const imagePath = '../public/skybox/pink_sunset.png';
+        loader.load(imagePath, (panoramaTexture) => {
+            const skySphereGeometry = new THREE.SphereGeometry(500, 60, 60);
+
+            panoramaTexture.mapping = THREE.EquirectangularReflectionMapping;
+            panoramaTexture.colorSpace = THREE.SRGBColorSpace;
+            let skySphereMaterial = new THREE.MeshBasicMaterial({
+                map: panoramaTexture,
+            });
+
+            skySphereMaterial.side = THREE.BackSide;
+            skySphereMesh = new THREE.Mesh(skySphereGeometry, skySphereMaterial);
+            skySphereMesh.material.onBeforeCompile = ModifyShader;
+            scene.add(skySphereMesh);
+            
+            // Now that the skybox is loaded, set up the GUI control
+            setupSkyboxGUI();
+        });
+
+    }
+
+    // Create the skybox control object with a proper property that holds the current selection
+    var skyboxController = {
+        // This property will hold the current skybox selection
+        currentSkybox: 'pinkSky', // Set the initial value to match what we load by default
         
-        loader.load(
-            imagePath, 
-            (panoramaTexture) => {
-                try {
-                    const skySphereGeometry = new THREE.SphereGeometry(500, 60, 60);
-                    panoramaTexture.mapping = THREE.EquirectangularReflectionMapping;
-                    panoramaTexture.colorSpace = THREE.SRGBColorSpace;
-                    
-                    const skySphereMaterial = new THREE.MeshBasicMaterial({
-                        map: panoramaTexture,
-                        side: THREE.BackSide
-                    });
-                    
-                    skySphereMaterial.onBeforeCompile = ModifyShader;
-                    const skySphereMesh = new THREE.Mesh(skySphereGeometry, skySphereMaterial);
-                    scene.add(skySphereMesh);
-                } catch (error) {
-                    console.error('Error setting up skybox:', error);
-                }
-            },
-            undefined,
-            (error) => {
-                console.error('Error loading skybox texture:', error);
+        // This function handles changing the skybox
+        changeSkyBox: function(newTextureName) {
+            if (skySphereMesh && skyBoxTextures[newTextureName]) {
+                controls.disconnect();
+                document.removeEventListener( 'keydown', onKeyDown );
+                document.removeEventListener( 'keydown', interactListener );
+                document.removeEventListener( 'keydown', rotateTheCamera );
+                document.removeEventListener( 'keyup', onKeyUp );
+                document.removeEventListener( 'mousedown', handleMiddleClick);
+                setTimeout(() => {
+                    skySphereMesh.material.map = skyBoxTextures[newTextureName];
+                    skySphereMesh.material.needsUpdate = true;
+                }, 100);
+                document.addEventListener( 'keydown', onKeyDown );
+                document.addEventListener( 'keydown', interactListener );
+                document.addEventListener( 'keydown', rotateTheCamera );
+                document.addEventListener( 'keyup', onKeyUp );
+                document.addEventListener( 'mousedown', handleMiddleClick);
+                controls.connect(canvas);
+                controls.object.position.copy(camera.position);
+                console.log('Skybox changed to:', newTextureName);
             }
-        );
+        }
+    };
+
+    // Separate function to set up the GUI control after the skybox is loaded
+    function setupSkyboxGUI() {
+        const skyBoxFolder = gui.addFolder('SkyBox');
+        
+        // Create the dropdown control
+        const skyboxDropdown = skyBoxFolder.add(skyboxController, 'currentSkybox', ['pinkSky', 'blueSky', 'nightSky', 'okcSunset'])
+            .name('Select Skybox');
+        
+        // Set up the onChange listener to actually change the skybox
+        skyboxDropdown.onChange(function(value) {
+            skyboxController.changeSkyBox(value);
+        });
+        
+        skyBoxFolder.open(); // Optional: opens the folder by default
     }
 
     // Fog setup
@@ -1218,6 +1877,7 @@ function main() {
     fogFolder.add(fogGUIHelper, 'density', 0, 0.05, 0.0001);
     fogFolder.addColor(fogGUIHelper, 'color');
     fogFolder.open();
+    updateGUIVisibility();
 
     // GLTF Model loading with improved error handling
     {
@@ -1392,6 +2052,7 @@ function main() {
                 dracoLoader.dispose();
             }
         );
+
     }
 
     function resizeRendererToDisplaySize(renderer) {
@@ -1411,7 +2072,9 @@ function main() {
 
     function render(time) {
         try {
-            if (!controls.isLocked) {
+            if (!controls.isLocked && !isGUIMode) {
+                velocity.set(0, 0, 0);
+                direction.set(0, 0, 0);
                 requestAnimationFrame(render);
                 return;
             }
@@ -1437,7 +2100,22 @@ function main() {
 
             const pointLockTime = performance.now();
 
-            if (controls.isLocked === true) {
+            if ( controls.isLocked === true && !isGUIMode) {
+                theaterSphere.checkForIntersection(camera);
+                cleanersSphere.checkForIntersection(camera);
+                dominosSphere.checkForIntersection(camera);
+                recordsSphere.checkForIntersection(camera);
+                let theCameraInside = (theaterSphere.cameraInside || cleanersSphere.cameraInside || dominosSphere.cameraInside || recordsSphere.cameraInside) ? true : false;
+                if (theCameraInside) {
+                    document.getElementById('interactionBlocker').style.display = 'block';
+                    document.getElementById('interactDesc').style.display = 'flex';
+                } else if (document.getElementById('interactionBlocker').style.display === 'block' && !theCameraInside) {
+                    document.getElementById('interactionBlocker').style.display = 'none';
+                    document.getElementById('interactDesc').style.display = 'none';
+                }
+            }
+
+            if ( controls.isLocked === true || isGUIMode  && !PopupManager.popUpActive && !guiFocused){
                 const delta = (time - prevTime) / 1000;
 
                 velocity.x -= velocity.x * 10.0 * delta;
@@ -1452,6 +2130,9 @@ function main() {
 
                 controls.moveRight(-velocity.x * delta);
                 controls.moveForward(-velocity.z * delta);
+            } else {
+                velocity.set(0, 0, 0);
+                direction.set(0, 0, 0);
             }
 
             if (window.cullingLODManager) {
