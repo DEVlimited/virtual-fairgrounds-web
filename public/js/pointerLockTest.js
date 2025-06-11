@@ -1785,7 +1785,7 @@ function main() {
 
         const lightFolder = gui.addFolder('Light');
         lightFolder.addColor(new ColorGUIHelper(light, 'color'), 'value').name('color');
-        lightFolder.add(light, 'intensity', 0, 5, 0.01);
+        lightFolder.add(light, 'intensity', 0, 10, 0.01);
         lightFolder.open();
 
     }
@@ -1834,21 +1834,13 @@ function main() {
         changeSkyBox: function(newTextureName) {
             if (skySphereMesh && skyBoxTextures[newTextureName]) {
                 controls.disconnect();
-                document.removeEventListener( 'keydown', onKeyDown );
-                document.removeEventListener( 'keydown', interactListener );
-                document.removeEventListener( 'keydown', rotateTheCamera );
-                document.removeEventListener( 'keyup', onKeyUp );
-                document.removeEventListener( 'mousedown', handleMiddleClick);
+                resetMovementState();
                 setTimeout(() => {
                     skySphereMesh.material.map = skyBoxTextures[newTextureName];
                     skySphereMesh.material.needsUpdate = true;
                 }, 100);
-                document.addEventListener( 'keydown', onKeyDown );
-                document.addEventListener( 'keydown', interactListener );
-                document.addEventListener( 'keydown', rotateTheCamera );
-                document.addEventListener( 'keyup', onKeyUp );
-                document.addEventListener( 'mousedown', handleMiddleClick);
                 controls.connect(canvas);
+                resetMovementState();
                 controls.object.position.copy(camera.position);
                 console.log('Skybox changed to:', newTextureName);
             }
@@ -2136,9 +2128,10 @@ function main() {
                 direction.set(0, 0, 0);
             }
 
-            if (window.cullingLODManager) {
-                window.cullingLODManager.update();
-            }
+            // Until further notice the culling is being disabled
+            // if (window.cullingLODManager) {
+            //     window.cullingLODManager.update();
+            // }
 
             if (time % 3 === 0) {
                 if (window.updateTextureQuality) {
