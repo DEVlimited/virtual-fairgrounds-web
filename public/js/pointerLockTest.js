@@ -269,24 +269,22 @@ class AdvancedCullingLODManager {
     createMediumLODMaterial(originalMaterial) {
         if (!originalMaterial) return originalMaterial;
         
-        // Clone the material but with some optimizations
+        // Always create materials of the same type to maintain lighting behavior
         const mediumMaterial = originalMaterial.clone();
         
-        // Reduce texture resolution if possible
+        // Instead of changing material types, just reduce quality settings
         if (mediumMaterial.map) {
-            // You would implement texture downscaling here
-            // For now, we'll just reduce some quality settings
             mediumMaterial.map.minFilter = THREE.LinearFilter;
             mediumMaterial.map.magFilter = THREE.LinearFilter;
         }
         
-        // Disable expensive features for medium LOD
-        if (mediumMaterial.normalMap) {
-            // Keep normal map but might reduce its influence
-            mediumMaterial.normalScale = mediumMaterial.normalScale ? 
-                mediumMaterial.normalScale.clone().multiplyScalar(0.7) : 
-                new THREE.Vector2(0.7, 0.7);
+        // Reduce normal map influence instead of removing it
+        if (mediumMaterial.normalMap && mediumMaterial.normalScale) {
+            mediumMaterial.normalScale.multiplyScalar(0.7);
         }
+        
+        // Ensure lighting properties are preserved
+        mediumMaterial.lights = originalMaterial.lights;
         
         return mediumMaterial;
     }
@@ -308,6 +306,8 @@ class AdvancedCullingLODManager {
             lowMaterial.map.minFilter = THREE.NearestFilter;
             lowMaterial.map.magFilter = THREE.NearestFilter;
         }
+
+        lowMaterial.lights = originalMaterial.lights;
         
         return lowMaterial;
     }
@@ -443,6 +443,8 @@ class AdvancedCullingLODManager {
 
     // Apply the appropriate LOD level to an object
     applyLODLevel(mesh, lodData, lodLevel) {
+        const oldMaterial = mesh.material;
+
         switch (lodLevel) {
             case 'high':
                 mesh.material = lodData.highLODMaterial;
@@ -469,6 +471,22 @@ class AdvancedCullingLODManager {
         
         // Force material update
         mesh.material.needsUpdate = true;
+
+        mesh.updateMatrixWorld(true);
+
+        if (oldMaterial.type !== mesh.material.type) {
+            // Force shader recompilation by clearing the program cache
+            if (this.renderer.info.programs) {
+                this.renderer.info.programs.forEach(program => {
+                    if (program.cacheKey.includes(mesh.uuid)) {
+                        program.destroy();
+                    }
+                });
+            }
+            
+            // Mark the object as needing a lighting update
+            mesh.userData.needsLightingUpdate = true;
+        }
     }
 
     // Get performance statistics
@@ -694,8 +712,8 @@ function setupOptimizedTextureSystem(gltfScene, scene, camera) {
     // Return distance-based quality update function
     return function updateTextureQuality() {
         const cameraPosition = camera.position;
-        const HIGH_QUALITY_DISTANCE = 50;
-        const LOW_QUALITY_DISTANCE = 150;
+        const HIGH_QUALITY_DISTANCE = 25;
+        const LOW_QUALITY_DISTANCE = 100;
         
         meshes.forEach(({ mesh }) => {
             try {
@@ -2136,9 +2154,9 @@ function main() {
                 direction.set(0, 0, 0);
             }
 
-            if (window.cullingLODManager) {
-                window.cullingLODManager.update();
-            }
+            // if (window.cullingLODManager) {
+            //     window.cullingLODManager.update();
+            // }
 
             if (time % 3 === 0) {
                 if (window.updateTextureQuality) {
