@@ -766,7 +766,7 @@ class MinMaxGUIHelper {
     }
 }
 
-//This is the color gui for the directional light
+// This is the color gui for the directional light
 class ColorGUIHelper {
     constructor(object, prop) {
         this.object = object;
@@ -780,7 +780,7 @@ class ColorGUIHelper {
     }
 }
 
-//This is the gui for fog to control legit everything
+// This is the gui for fog to control legit everything
 class FogGUIHelper {
     constructor(fog, camera) {
         this.fog = fog;
@@ -1218,8 +1218,6 @@ const informationArray = [
 ]
 
 function main() {
-
-    // Set up the custom shader chunks FIRST, before any materials are created
     setupCustomFogShaders(); // Use the fixed version from above
 
     
@@ -1317,6 +1315,7 @@ function main() {
     controls.maxPolarAngle = (120 * Math.PI) / 180;
     controls.minPolarAngle = (60 * Math.PI) / 180;
 
+    // Starter instructions/fully locked
     instructions.addEventListener( 'click', function () {
         if (!isGUIMode && !PopupManager.popUpActive) {
             controls.lock();
@@ -1326,6 +1325,7 @@ function main() {
         }
     });
 
+    // Close popup listener
     document.getElementById('popup').addEventListener('click', function(e) {
         if (e.target === this) {
             closePopup();
@@ -1334,6 +1334,7 @@ function main() {
         }
     });
 
+    // The X on the popup listener
     document.getElementById('popup-close-btn').addEventListener('click', function(e) {
         if (e.target === this) {
             closePopup();
@@ -1342,6 +1343,7 @@ function main() {
         }
     });
 
+    // Unlock listener that checks if instructions needs to be activated
     controls.addEventListener( 'unlock', function () {
         controls.unlock();
         console.log('Controls have been unlocked');
@@ -1354,12 +1356,15 @@ function main() {
         }
     });
 
+    // Just for debugging purposes to let me know controls were locked
     controls.addEventListener('lock', function () {
         console.log('controls have been locked');
     })
 
     scene.add( controls.object );
 
+
+    // This is to toggle the GUI mode so that you can use your mouse to mess with the GUI
     function toggleGUIMode() {
         isGUIMode = !isGUIMode;
 
@@ -1796,6 +1801,7 @@ function main() {
     // Mine couldnt read the currentSkybox variable, and the min I pasted his into the
     // code it worked perfectly fine.
     let skySphereMesh;
+    let skyboxDropdown;
     {
         let loader = new THREE.TextureLoader();
         skyBoxTextures = {
@@ -1825,6 +1831,45 @@ function main() {
 
     }
 
+    // Function to add a new skybox from file
+    function addSkyboxFromFile(file) {
+        const fileName = file.name.split('.')[0]; 
+        const customName = `custom_${fileName}_${Date.now()}`; 
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const loader = new THREE.TextureLoader();
+            loader.load(e.target.result, (texture) => {
+                texture.mapping = THREE.EquirectangularReflectionMapping;
+                texture.colorSpace = THREE.SRGBColorSpace;
+                
+                skyBoxTextures[customName] = texture;
+
+                updateSkyboxDropdown();
+                
+                console.log(`Added custom skybox: ${customName}`);
+            });
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // Function to update the dropdown with new options
+    function updateSkyboxDropdown() {
+        if (skyboxDropdown) {
+            const availableOptions = Object.keys(skyBoxTextures);
+
+            skyboxDropdown.destroy();
+
+            const skyBoxFolder = gui.folders.find(folder => folder._title === 'SkyBox');
+            skyboxDropdown = skyBoxFolder.add(skyboxController, 'currentSkybox', availableOptions)
+                .name('Select Skybox');
+            
+            skyboxDropdown.onChange(function(value) {
+                skyboxController.changeSkyBox(value);
+            });
+        }
+    }
+
     // Create the skybox control object with a proper property that holds the current selection
     var skyboxController = {
         // This property will hold the current skybox selection
@@ -1852,16 +1897,39 @@ function main() {
         const skyBoxFolder = gui.addFolder('SkyBox');
         
         // Create the dropdown control
-        const skyboxDropdown = skyBoxFolder.add(skyboxController, 'currentSkybox', ['pinkSky', 'blueSky', 'nightSky', 'okcSunset'])
+        skyboxDropdown = skyBoxFolder.add(skyboxController, 'currentSkybox', ['pinkSky', 'blueSky', 'nightSky', 'okcSunset'])
             .name('Select Skybox');
         
         // Set up the onChange listener to actually change the skybox
         skyboxDropdown.onChange(function(value) {
             skyboxController.changeSkyBox(value);
         });
+
+        const fileController = {
+            uploadSkybox: function() {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*,.hdr';
+                input.multiple = true;
+                
+                input.onchange = function(e) {
+                    const files = Array.from(e.target.files);
+                    files.forEach(file => {
+                        if (file.type.startsWith('image/')) {
+                            addSkyboxFromFile(file);
+                        }
+                    });
+                };
+                
+                input.click();
+            }
+        };
+            
+        skyBoxFolder.add(fileController, 'uploadSkybox').name('Upload Skybox');
         
         skyBoxFolder.open(); // Optional: opens the folder by default
     }
+
 
     // Fog setup
     scene.fog = new THREE.FogExp2(0xbe9fd4, 0.005);
