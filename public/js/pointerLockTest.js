@@ -253,7 +253,6 @@ class AdvancedCullingLODManager {
         simplified.map = material.map;
         simplified.color = material.color?.clone?.() ?? new THREE.Color(0xffffff);
 
-        // Optionally simplify lighting complexity
         if (level === 'medium' || level === 'low') {
             simplified.flatShading = true;
         } else if (level == 'low') {
@@ -269,7 +268,6 @@ class AdvancedCullingLODManager {
         simplified.needsUpdate = true;
         return simplified;
 
-        // return material.clone();
     }
 
     injectIntoGLTFScene(gltfScene, defaultLODOptions = {}) {
