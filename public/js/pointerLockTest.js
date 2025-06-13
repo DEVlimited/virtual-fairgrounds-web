@@ -181,350 +181,223 @@ function setupCustomFogShaders() {
 // Advanced Frustum Culling and LOD System for Three.js
 // This is another LODManager section of code that I found online,
 // It helps keep only objects in the frustrum loaded and unloads objects that are too far away
+// REFACTORED: Advanced LOD system with NO MATERIAL SWAPPING
+// Uses separate LOD mesh instances with visibility toggling
 class AdvancedCullingLODManager {
     constructor(camera, renderer) {
         this.camera = camera;
         this.renderer = renderer;
-        
-        // Frustum culling setup
         this.frustum = new THREE.Frustum();
         this.cameraMatrix = new THREE.Matrix4();
-        
-        // LOD distance thresholds (in world units)
-        this.lodDistances = {
-            high: 25,      // Full detail within 50 units
-            medium: 75,   // Medium detail from 50-150 units
-            low: 100,      // Low detail from 150-300 units
-            cull: 150      // Don't render beyond 500 units
-        };
-        
-        // Performance tracking
-        this.stats = {
-            totalObjects: 0,
-            culledObjects: 0,
-            highLOD: 0,
-            mediumLOD: 0,
-            lowLOD: 0,
-            renderCalls: 0
-        };
-        
-        // Cache for expensive calculations
         this.objectCache = new Map();
         this.frameCount = 0;
-        
-        // Bounding spheres cache for faster frustum testing
-        this.boundingSpheres = new Map();
+        this.trackedShaders = [];
     }
 
-    // Register an object for culling and LOD management
-    registerObject(mesh, options = {}) {
-        const id = mesh.uuid;
-        
-        // Create LOD variants if they don't exist
+    registerObjectGroupFromGLTF(originalMesh, lodOptions = {}) {
+        const baseName = originalMesh.name;
+
+        const group = new THREE.Group();
+        group.name = `${baseName}_LODGroup`;
+
+        const high = originalMesh.clone();
+        high.name = 'high';
+        this.prepareMaterialWithFog(high.material);
+
+        const medium = originalMesh.clone();
+        medium.name = 'medium';
+        medium.material = this.simplifyMaterial(medium.material, 'medium');
+        this.prepareMaterialWithFog(medium.material);
+
+        const low = originalMesh.clone();
+        low.name = 'low';
+        low.material = this.simplifyMaterial(low.material, 'low');
+        this.prepareMaterialWithFog(low.material);
+
+        group.add(high, medium, low);
+        originalMesh.parent.add(group);
+        originalMesh.parent.remove(originalMesh);
+
+        return this.registerObject(group, lodOptions);
+    }
+
+    prepareMaterialWithFog(material) {
+        const materials = Array.isArray(material) ? material : [material];
+        materials.forEach((mat) => {
+            if (typeof isFogCompatibleMaterial === 'function' && isFogCompatibleMaterial(mat)) {
+                mat.fog = true;
+                mat.needsUpdate = true;
+                this.trackedShaders.push(mat);
+            }
+        });
+    }
+
+    updateFogTimeUniforms(totalTime) {
+        for (let s of this.trackedShaders) {
+            try {
+                if (s.uniforms && s.uniforms.fogTime) {
+                    s.uniforms.fogTime.value = totalTime;
+                }
+            } catch (error) {
+                console.warn('Error updating shader uniform:', error);
+            }
+        }
+    }
+
+    simplifyMaterial(material, level) {
+        if (!material || typeof material.clone !== 'function') return material;
+
+        const simplified = material.clone();
+
+        // Preserve key visual features
+        simplified.map = material.map;
+        simplified.color = material.color?.clone?.() ?? new THREE.Color(0xffffff);
+
+        if (level === 'medium' || level === 'low') {
+            simplified.flatShading = true;
+        } else if (level == 'low') {
+            const simplifiedLow = new THREE.MeshLambertMaterial({
+                map: material.map,
+                color: material.color,
+                flatShading: true,
+            });
+            simplifiedLow.needsUpdate = true;
+            return simplifiedLow;
+        }
+
+        simplified.needsUpdate = true;
+        return simplified;
+
+    }
+
+    injectIntoGLTFScene(gltfScene, defaultLODOptions = {}) {
+        gltfScene.traverse((child) => {
+            if (!child.isMesh || child.name.endsWith('_LODGroup') || child.parent?.name.endsWith('_LODGroup')) return;
+
+            const name = child.name.toLowerCase();
+            let lodOptions = { ...defaultLODOptions };
+
+            if (name.includes('roads') || name.includes('plane') || (child.material.name && child.material.name.toLowerCase().includes('road'))) {
+                lodOptions = {
+                    allowCulling: false,
+                    lodDistances: { high: 200, medium: 500, low: 1000, cull: 2000 }
+                };
+            } else if (name.includes('building') || name.includes('structure') || name.includes('house') || name.includes('tower')) {
+                lodOptions = {
+                    lodDistances: { high: 40, medium: 100, low: 200, cull: 400 }
+                };
+            } else if (name.includes('detail') || name.includes('decoration') || name.includes('prop') || name.includes('ornament')) {
+                lodOptions = {
+                    lodDistances: { high: 30, medium: 80, low: 150, cull: 300 }
+                };
+            } else if (name.includes('ground') || name.includes('terrain') || name.includes('landscape')) {
+                lodOptions = {
+                    allowCulling: false,
+                    lodDistances: { high: 100, medium: 300, low: 600, cull: 1200 }
+                };
+            }
+
+            try {
+                this.registerObjectGroupFromGLTF(child, lodOptions);
+            } catch (error) {
+                console.warn(`LOD registration failed for ${child.name}:`, error);
+            }
+        });
+    }
+
+    registerObject(objectGroup, options = {}) {
+        const id = objectGroup.uuid;
+
         const lodData = {
-            mesh: mesh,
-            originalMaterial: mesh.material,
-            
-            // LOD Materials (you can customize these based on your needs)
-            highLODMaterial: mesh.material, // Original material
-            mediumLODMaterial: this.createMediumLODMaterial(mesh.material),
-            lowLODMaterial: this.createLowLODMaterial(mesh.material),
-            
-            // Custom LOD distances for this object (optional)
-            lodDistances: options.lodDistances || this.lodDistances,
-            
-            // Whether this object can be culled
-            allowCulling: options.allowCulling !== false,
-            
-            // Whether this object uses LOD
-            useLOD: options.useLOD !== false,
-            
-            // Current state
-            currentLOD: 'high',
-            isVisible: true,
-            lastUpdateFrame: 0
+            group: objectGroup,
+            meshes: {
+                high: objectGroup.getObjectByName('high'),
+                medium: objectGroup.getObjectByName('medium'),
+                low: objectGroup.getObjectByName('low'),
+            },
+            lodDistances: options.lodDistances || {
+                high: 25,
+                medium: 75,
+                low: 150,
+                cull: 300
+            },
+            currentLOD: null,
+            allowCulling: options.allowCulling !== false
         };
-        
+
         this.objectCache.set(id, lodData);
-        
-        // Compute and cache bounding sphere for faster frustum testing
-        this.computeBoundingSphere(mesh);
-        
         return id;
     }
 
-    // Compute bounding sphere for an object (more efficient than bounding box for frustum testing)
-    computeBoundingSphere(mesh) {
-        if (!mesh.geometry.boundingSphere) {
-            mesh.geometry.computeBoundingSphere();
-        }
-        
-        const sphere = mesh.geometry.boundingSphere.clone();
-        sphere.applyMatrix4(mesh.matrixWorld);
-        
-        this.boundingSpheres.set(mesh.uuid, sphere);
-    }
-
-    // Create medium LOD material (simplified version of original)
-    createMediumLODMaterial(originalMaterial) {
-        if (!originalMaterial) return originalMaterial;
-        
-        // Clone the material but with some optimizations
-        const mediumMaterial = originalMaterial.clone();
-        
-        // Reduce texture resolution if possible
-        if (mediumMaterial.map) {
-            // You would implement texture downscaling here
-            // For now, we'll just reduce some quality settings
-            mediumMaterial.map.minFilter = THREE.LinearFilter;
-            mediumMaterial.map.magFilter = THREE.LinearFilter;
-        }
-        
-        // Disable expensive features for medium LOD
-        if (mediumMaterial.normalMap) {
-            // Keep normal map but might reduce its influence
-            mediumMaterial.normalScale = mediumMaterial.normalScale ? 
-                mediumMaterial.normalScale.clone().multiplyScalar(0.7) : 
-                new THREE.Vector2(0.7, 0.7);
-        }
-        
-        return mediumMaterial;
-    }
-
-    // Create low LOD material (heavily simplified)
-    createLowLODMaterial(originalMaterial) {
-        if (!originalMaterial) return originalMaterial;
-        
-        // Create a much simpler material for distant objects
-        const lowMaterial = new THREE.MeshBasicMaterial({
-            color: this.getAverageColor(originalMaterial),
-            transparent: originalMaterial.transparent,
-            opacity: originalMaterial.opacity
-        });
-        
-        // If original has a main texture, use it but simplified
-        if (originalMaterial.map) {
-            lowMaterial.map = originalMaterial.map;
-            lowMaterial.map.minFilter = THREE.NearestFilter;
-            lowMaterial.map.magFilter = THREE.NearestFilter;
-        }
-        
-        return lowMaterial;
-    }
-
-    // Extract average color from material for low LOD fallback
-    getAverageColor(material) {
-        if (material.color) return material.color;
-        if (material.emissive) return material.emissive;
-        return new THREE.Color(0x888888); // Default gray
-    }
-
-    // Main update function - call this every frame
     update() {
-        this.frameCount++;
-        
-        // Reset stats
-        this.stats = {
-            totalObjects: this.objectCache.size,
-            culledObjects: 0,
-            highLOD: 0,
-            mediumLOD: 0,
-            lowLOD: 0,
-            renderCalls: 0
-        };
-        
-        // Update camera frustum
         this.updateCameraFrustum();
-        
-        // Process each registered object
+
         for (const [id, lodData] of this.objectCache) {
-            this.processObject(id, lodData);
-        }
-        
-        // Log performance stats occasionally
-        if (this.frameCount % 60 === 0) {
-            this.logStats();
+            this.processLODGroup(lodData);
         }
     }
 
-    // Update the camera frustum for culling tests
     updateCameraFrustum() {
-        // Combine camera's projection and view matrices
         this.cameraMatrix.multiplyMatrices(
             this.camera.projectionMatrix,
             this.camera.matrixWorldInverse
         );
-        
-        // Extract frustum planes from the combined matrix
         this.frustum.setFromProjectionMatrix(this.cameraMatrix);
     }
 
-    // Process a single object for culling and LOD
-    processObject(id, lodData) {
-        const mesh = lodData.mesh;
-        
-        // Skip if object doesn't exist or is already hidden by user
-        if (!mesh || !mesh.parent) return;
-        
-        // Update world matrix if needed
-        if (mesh.matrixWorldNeedsUpdate) {
-            mesh.updateMatrixWorld();
-            this.computeBoundingSphere(mesh);
-        }
-        
-        // 1. FRUSTUM CULLING
-        const isInFrustum = this.isObjectInFrustum(mesh);
-        
-        if (!isInFrustum && lodData.allowCulling) {
-            // Object is outside camera view - cull it
-            mesh.visible = false;
-            lodData.isVisible = false;
-            this.stats.culledObjects++;
-            return;
-        }
-        
-        // Object is visible, make sure it's enabled
-        mesh.visible = true;
-        lodData.isVisible = true;
-        
-        // 2. LOD SELECTION
-        if (lodData.useLOD) {
-            this.updateObjectLOD(mesh, lodData);
-        }
-        
-        this.stats.renderCalls++;
-    }
+    processLODGroup(lodData) {
+        const group = lodData.group;
+        const position = new THREE.Vector3();
+        group.getWorldPosition(position);
 
-    // Test if object is within camera frustum
-    isObjectInFrustum(mesh) {
-        // Get cached bounding sphere
-        const boundingSphere = this.boundingSpheres.get(mesh.uuid);
-        
-        if (!boundingSphere) {
-            // Fallback to bounding box test if sphere not available
-            return this.frustum.intersectsObject(mesh);
-        }
-        
-        // Sphere test is faster than box test
-        return this.frustum.intersectsSphere(boundingSphere);
-    }
+        const distance = this.camera.position.distanceTo(position);
 
-    // Update LOD for a specific object
-    updateObjectLOD(mesh, lodData) {
-        // Calculate distance from camera to object
-        const distance = this.camera.position.distanceTo(mesh.position);
-        
-        let newLOD = 'high';
-        
-        // Determine appropriate LOD level
+        let lod = 'high';
         if (distance > lodData.lodDistances.cull) {
-            // Beyond cull distance - hide completely
-            mesh.visible = false;
-            lodData.isVisible = false;
-            this.stats.culledObjects++;
+            group.visible = false;
             return;
         } else if (distance > lodData.lodDistances.low) {
-            newLOD = 'low';
-            this.stats.lowLOD++;
+            lod = 'low';
         } else if (distance > lodData.lodDistances.medium) {
-            newLOD = 'medium';
-            this.stats.mediumLOD++;
-        } else {
-            newLOD = 'high';
-            this.stats.highLOD++;
+            lod = 'medium';
         }
-        
-        // Only update material if LOD level changed
-        if (newLOD !== lodData.currentLOD) {
-            this.applyLODLevel(mesh, lodData, newLOD);
-            lodData.currentLOD = newLOD;
+
+        const currentMesh = lodData.meshes[lod];
+        if (!currentMesh) return;
+
+        if (lodData.allowCulling && !this.frustum.intersectsObject(currentMesh)) {
+            group.visible = false;
+            return;
+        }
+
+        group.visible = true;
+
+        if (lod !== lodData.currentLOD) {
+            this.applyLODVisibility(lodData, lod);
+            lodData.currentLOD = lod;
         }
     }
 
-    // Apply the appropriate LOD level to an object
-    applyLODLevel(mesh, lodData, lodLevel) {
-        switch (lodLevel) {
-            case 'high':
-                mesh.material = lodData.highLODMaterial;
-                // Enable all geometry details
-                if (mesh.morphTargetInfluences) {
-                    // Keep morph targets active
-                }
-                break;
-                
-            case 'medium':
-                mesh.material = lodData.mediumLODMaterial;
-                // Might disable some geometry features
-                break;
-                
-            case 'low':
-                mesh.material = lodData.lowLODMaterial;
-                // Disable expensive geometry features
-                if (mesh.morphTargetInfluences) {
-                    // Disable morph targets for performance
-                    mesh.morphTargetInfluences.fill(0);
-                }
-                break;
+    applyLODVisibility(lodData, targetLOD) {
+        const meshes = lodData.meshes;
+        for (const level in meshes) {
+            if (meshes[level]) {
+                meshes[level].visible = (level === targetLOD);
+            }
         }
-        
-        // Force material update
-        mesh.material.needsUpdate = true;
     }
 
-    // Get performance statistics
-    getStats() {
-        const cullingEfficiency = this.stats.totalObjects > 0 ? 
-            (this.stats.culledObjects / this.stats.totalObjects * 100).toFixed(1) : 0;
-        
-        return {
-            ...this.stats,
-            cullingEfficiency: `${cullingEfficiency}%`,
-            frameRate: this.getFPS()
-        };
+    unregisterObject(objectGroup) {
+        this.objectCache.delete(objectGroup.uuid);
     }
 
-    // Simple FPS calculation
-    getFPS() {
-        // This is a simplified version - you might want a more sophisticated FPS counter
-        return Math.round(1000 / (performance.now() - (this.lastFrameTime || performance.now())));
-    }
-
-    // Log performance statistics
-    logStats() {
-        const stats = this.getStats();
-        console.log('Culling & LOD Stats:', {
-            'Total Objects': stats.totalObjects,
-            'Culled': `${stats.culledObjects} (${stats.cullingEfficiency})`,
-            'High LOD': stats.highLOD,
-            'Medium LOD': stats.mediumLOD,
-            'Low LOD': stats.lowLOD,
-            'Render Calls': stats.renderCalls
-        });
-    }
-
-    // Remove an object from management
-    unregisterObject(meshOrId) {
-        const id = typeof meshOrId === 'string' ? meshOrId : meshOrId.uuid;
-        this.objectCache.delete(id);
-        this.boundingSpheres.delete(id);
-    }
-
-    // Clean up resources
     dispose() {
-        // Dispose of created materials
-        for (const [id, lodData] of this.objectCache) {
-            if (lodData.mediumLODMaterial && lodData.mediumLODMaterial !== lodData.originalMaterial) {
-                lodData.mediumLODMaterial.dispose();
-            }
-            if (lodData.lowLODMaterial && lodData.lowLODMaterial !== lodData.originalMaterial) {
-                lodData.lowLODMaterial.dispose();
-            }
-        }
-        
         this.objectCache.clear();
-        this.boundingSpheres.clear();
     }
 }
+
+
+
 
 class SafeTextureLODManager {
     constructor() {
@@ -694,8 +567,8 @@ function setupOptimizedTextureSystem(gltfScene, scene, camera) {
     // Return distance-based quality update function
     return function updateTextureQuality() {
         const cameraPosition = camera.position;
-        const HIGH_QUALITY_DISTANCE = 50;
-        const LOW_QUALITY_DISTANCE = 150;
+        const HIGH_QUALITY_DISTANCE = 25;
+        const LOW_QUALITY_DISTANCE = 100;
         
         meshes.forEach(({ mesh }) => {
             try {
@@ -1218,8 +1091,7 @@ const informationArray = [
 ]
 
 function main() {
-    setupCustomFogShaders(); // Use the fixed version from above
-
+    setupCustomFogShaders();
     
     const canvas = document.querySelector('#c');
     const renderer = new THREE.WebGLRenderer({ antialias: true, canvas });
@@ -1270,19 +1142,6 @@ function main() {
 
     const scene = new THREE.Scene();
     const gui = new GUI();
-    
-    // Store shaders that need to be updated with fogTime
-    const shaders = [];
-
-    // Modified ModifyShader function with error handling
-    const ModifyShader = (shader) => {
-        try {
-            shaders.push(shader);
-            shader.uniforms.fogTime = { value: 0.0 };
-        } catch (error) {
-            console.warn('Failed to modify shader:', error);
-        }
-    };
 
     function setupOptimizedRendering(scene, camera, renderer) {
         // Create the culling/LOD manager
@@ -1577,52 +1436,10 @@ function main() {
     
     // LOD distance controls
     const lodControls = {
-        highLODDistance: 25,
-        mediumLODDistance: 75,
-        lowLODDistance: 100,
-        cullDistance: 150,
+        lodDistances: { high: 40, medium: 100, low: 150, cull: 200 },
         enableCulling: true,
         enableLOD: true
     };
-    
-    optimizationFolder.add(lodControls, 'highLODDistance', 10, 200).onChange(() => {
-        // Update all objects with new distances
-        if (window.cullingLODManager) {
-            for (const [id, lodData] of window.cullingLODManager.objectCache) {
-                lodData.lodDistances.high = lodControls.highLODDistance;
-                lodData.lodDistances.medium = lodControls.mediumLODDistance;
-                lodData.lodDistances.low = lodControls.lowLODDistance;
-                lodData.lodDistances.cull = lodControls.cullDistance;
-            }
-        }
-    });
-    
-    optimizationFolder.add(lodControls, 'mediumLODDistance', 50, 400).onChange(() => {
-        // Update logic same as above
-    });
-    
-    optimizationFolder.add(lodControls, 'enableCulling').onChange((value) => {
-        if (window.cullingLODManager) {
-            for (const [id, lodData] of window.cullingLODManager.objectCache) {
-                lodData.allowCulling = value;
-            }
-        }
-    });
-    
-    // Performance stats display
-    const perfStats = { showStats: false };
-    optimizationFolder.add(perfStats, 'showStats').onChange((value) => {
-        if (value) {
-            // Show stats every second
-            setInterval(() => {
-                if (window.cullingLODManager) {
-                    console.table(window.cullingLODManager.getStats());
-                }
-            }, 1000);
-        }
-    });
-    
-    optimizationFolder.open();
 
     // Scene graph dump function
     function dumpObject(obj, lines = [], isLast = true, prefix = '') {
@@ -1822,7 +1639,6 @@ function main() {
 
             skySphereMaterial.side = THREE.BackSide;
             skySphereMesh = new THREE.Mesh(skySphereGeometry, skySphereMaterial);
-            skySphereMesh.material.onBeforeCompile = ModifyShader;
             scene.add(skySphereMesh);
             
             // Now that the skybox is loaded, set up the GUI control
@@ -1959,125 +1775,8 @@ function main() {
 
                     const updateTextureQuality = setupOptimizedTextureSystem(root, scene, camera);
                     window.updateTextureQuality = updateTextureQuality;
-
-                    // Enhanced object registration with better road detection
-                    let meshCount = 0;
-                    let roadCount = 0;
-                    const registeredObjects = [];
-
-                    console.log('=== SCANNING FOR OBJECTS ===');
                     
-                    root.traverse((child) => {
-                        if (child.isMesh && child.material) {
-                            meshCount++;
-                            const name = child.name.toLowerCase();
-                            const isRoad = (
-                                name.includes('roads') ||
-                                name.includes('Plane') ||
-                                // Check if material name suggests it's a road
-                                (child.material && child.material.name && 
-                                child.material.name.toLowerCase().includes('road'))
-                            );
-
-                            let lodOptions = {};
-                            let objectType = 'generic';
-                            // Roads
-                            if (isRoad) {
-                                roadCount++;
-                                objectType = 'road';
-                                
-                                lodOptions = {
-                                    allowCulling: false, 
-                                    useLOD: true,
-                                    lodDistances: {
-                                        high: 200,  
-                                        medium: 500,  
-                                        low: 1000,  
-                                        cull: 2000    
-                                    }
-                                };
-                            }
-                            // Buildings and large structures
-                            else if (name.includes('building') || 
-                                    name.includes('structure') ||
-                                    name.includes('house') ||
-                                    name.includes('tower')) {
-                                objectType = 'building';
-                                lodOptions = {
-                                    lodDistances: {
-                                        high: 40,
-                                        medium: 100,
-                                        low: 200,
-                                        cull: 400
-                                    }
-                                };
-                            }
-                            // Small details and decorations
-                            else if (name.includes('detail') || 
-                                    name.includes('decoration') ||
-                                    name.includes('prop') ||
-                                    name.includes('ornament')) {
-                                objectType = 'detail';
-                                lodOptions = {
-                                    lodDistances: {
-                                        high: 30,
-                                        medium: 80,
-                                        low: 150,
-                                        cull: 300
-                                    }
-                                };
-                            }
-                            // Terrain and ground objects
-                            else if (name.includes('ground') || 
-                                    name.includes('terrain') ||
-                                    name.includes('landscape')) {
-                                objectType = 'terrain';
-                                lodOptions = {
-                                    allowCulling: false, 
-                                    lodDistances: {
-                                        high: 100,
-                                        medium: 300,
-                                        low: 600,
-                                        cull: 1200
-                                    }
-                                };
-                            }
-                            
-                            // Register the object with the LOD manager
-                            try {
-                                const objectId = window.cullingLODManager.registerObject(child, lodOptions);
-                                registeredObjects.push({
-                                    id: objectId,
-                                    name: child.name,
-                                    type: objectType,
-                                    options: lodOptions
-                                });
-                            } catch (error) {
-                                console.error(`Failed to register object "${child.name}":`, error);
-                            }
-
-                            // Apply fog shaders with better error handling
-                            try {
-                                const materials = Array.isArray(child.material) ? child.material : [child.material];
-                                materials.forEach((mat, index) => {
-                                    if (isFogCompatibleMaterial(mat)) {
-                                        mat.onBeforeCompile = ModifyShader;
-                                    } else {
-                                        console.log(`Skipped fog shader for ${child.name} material ${index} (incompatible type: ${mat.type})`);
-                                    }
-                                });
-                            } catch (error) {
-                                console.warn(`Failed to apply shader to "${child.name}":`, error);
-                            }
-                        }
-                    });
-
-                    // Summary logging
-                    console.log('=== REGISTRATION SUMMARY ===');
-                    console.log(`Total meshes found: ${meshCount}`);
-                    console.log(`Roads detected: ${roadCount}`);
-                    console.log(`Objects registered: ${registeredObjects.length}`);
-
+                    window.cullingLODManager.injectIntoGLTFScene(root, lodControls);
                     scene.add(root);
                     console.log(dumpObject(root).join('\n'));
                     
@@ -2147,17 +1846,7 @@ function main() {
             const timeElapsed = (time - previousTime) * 0.001;
             totalTime += timeElapsed;
             previousTime = time;
-            
-            // Update fog time in all shaders with error handling
-            for (let s of shaders) {
-                try {
-                    if (s.uniforms && s.uniforms.fogTime) {
-                        s.uniforms.fogTime.value = totalTime;
-                    }
-                } catch (error) {
-                    console.warn('Error updating shader uniform:', error);
-                }
-            }
+            cullingLODManager.updateFogTimeUniforms(totalTime);
 
             const pointLockTime = performance.now();
 
@@ -2196,10 +1885,9 @@ function main() {
                 direction.set(0, 0, 0);
             }
 
-            // Until further notice the culling is being disabled
-            // if (window.cullingLODManager) {
-            //     window.cullingLODManager.update();
-            // }
+            if (window.cullingLODManager) {
+                window.cullingLODManager.update();
+            }
 
             if (time % 3 === 0) {
                 if (window.updateTextureQuality) {
