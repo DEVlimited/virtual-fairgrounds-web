@@ -1062,11 +1062,11 @@ const informationArray = [
         html: '<p><strong>The East Side Theater and its neighboring commercial development was the dream of George Richardson and J.W. Sanford, Sr.</strong></p>'
     },
     {
-        text: 'Bill\'s Cleaners is cool',
+        text: 'Bill\'s Cleaners. Located at 718 Bath Avenue.',
         image: {
-            src: '../public/714/images/714 Interior 1.tif',
-            alt: 'Image of 714 Bath Avenue Interior Circa 1950',
-            caption: 'Cool images'
+            src: '../public/images/718/Black Dis 1954-05-01 Bills Cleaners.PNG',
+            alt: 'Black Dispatch Ad for Bill\'s Cleaners',
+            caption: 'Bill would often publish his bowling scores in the Black Dispatch'
         },
         html: '<p><strong>Heard he was good at bowling!</strong></p>'
     },
