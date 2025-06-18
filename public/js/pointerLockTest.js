@@ -1073,7 +1073,7 @@ const informationArray = [
     {
         text: 'This location, 714 Bath Ave, was a variety of domino parlors. Like pool halls, domino was a dominant form of leisure in the twentieth century, particularly for men.',
         image: {
-            src: '../images/714 Interior 1.tif',
+            src: './images/714 Interior 1.tif',
             alt: 'Image of 714 Bath Avenue Interior Circa 1950',
             caption: "Domino's Billiard Hall - 714 Bath Avenue - ~1950"
         },
