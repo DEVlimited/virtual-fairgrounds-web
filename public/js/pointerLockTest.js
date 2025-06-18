@@ -1358,72 +1358,66 @@ function main() {
             case 'ArrowRight':
             case 'KeyD':
                 moveRight = true;
-                break; a
+                break;
         }
     };
 
     const rotateTheCamera = function (event) {
+        if (guiFocused) return;
+
         switch (event.code) {
-            case 'KeyQ':
-            case 'ArrowLeft':
+            case isGUIMode && 'KeyQ':
                 cameraEuler.setFromQuaternion(camera.quaternion);
                 cameraEuler.y -= -0.1 * 0.5 * 2;
                 camera.quaternion.setFromEuler(cameraEuler);
                 break;
 
-            case 'KeyE':
-            case 'ArrowRight':
+            case isGUIMode && 'KeyE':
                 cameraEuler.setFromQuaternion(camera.quaternion);
                 cameraEuler.y -= 0.1 * 0.5 * 2;
                 camera.quaternion.setFromEuler(cameraEuler);
                 break;
         }
-        const onKeyUp = function (event) {
+    }
+    const onKeyUp = function (event) {
 
-            switch (event.code) {
-                case 'ArrowUp':
-                case 'KeyW':
-                    moveForward = false;
-                    break;
-                case 'KeyA':
-                    moveLeft = false;
-                    break;
-                case 'ArrowDown':
-                case 'KeyS':
-                    moveBackward = false;
-                    break;
-                case 'KeyD':
-                    moveRight = false;
-                    break;
-            }
-        };
+        switch (event.code) {
+            case 'ArrowUp':
+            case 'KeyW':
+                moveForward = false;
+                break;
+            case 'ArrowLeft':
+            case 'KeyA':
+                moveLeft = false;
+                break;
+            case 'ArrowDown':
+            case 'KeyS':
+                moveBackward = false;
+                break;
+            case 'ArrowRight':
+            case 'KeyD':
+                moveRight = false;
+                break;
+        }
+    };
 
-        document.addEventListener('keydown', onKeyDown);
-        document.addEventListener('keyup', onKeyUp);
-        document.addEventListener('keydown', rotateTheCamera);
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keyup', onKeyUp);
+    document.addEventListener('keydown', rotateTheCamera);
 
-        document.addEventListener('mousedown', (event) => {
-            if (event.button === 1) {
-                event.preventDefault();
-                toggleGUIMode();
-                return;
-            }
-        });
-
-        document.addEventListener('keydown', (event) => {
-            if (event.code === 'KeySpace') {
-                event.preventDefault();
-                toggleGUIMode();
-                return;
-            }
-        });
+    document.addEventListener('mousedown', (event) => {
+        if (event.button === 1) {
+            event.preventDefault();
+            toggleGUIMode();
+            return;
+        }
 
         if (isGUIElement(event.target)) {
             console.log('GUI element clicked:', event.target);
             guiFocused = true;
             resetMovementState();
         }
-    };
+    });
 
     document.addEventListener('mousedown', (event) => {
         if (event.target === canvas || !isGUIElement(event.target)) {
@@ -1695,7 +1689,7 @@ function main() {
     // Create the skybox control object with a proper property that holds the current selection
     var skyboxController = {
         // This property will hold the current skybox selection
-        currentSkybox: 'okcSunset', // Set the initial value to match what we load by default
+        currentSkybox: 'pinkSky', // Set the initial value to match what we load by default
 
         // This function handles changing the skybox
         changeSkyBox: function (newTextureName) {
