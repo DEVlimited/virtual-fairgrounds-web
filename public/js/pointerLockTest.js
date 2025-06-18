@@ -1053,18 +1053,18 @@ const informationArray = [
     // },
     // html: 
     {
-        text: 'Hopefully I can get this to work',
+        text: 'Welcome to the Fairgrounds neighborhood circa 1955. You can learn mor here at the East Side Theater.',
         image: {
-            src: 'https://picsum.photos/350/200',
-            alt: 'Filler Image',
-            caption: 'Cool images'
+            src: '../public/images/eastside/East Side Theater 720-722 Bath.jpg',
+            alt: '700 block of N Bath at bottom',
+            caption: 'The Fairgrounds neighborhood had the approximate borders of NE 8th Street on the north to the Rock Island railroad tracks at the south, and Stonewall or Lottie Avenues to the West and Eastern Avenue (now MLK) to the east, and was bisected by active MKT railroad tracks running southwest-northeast. Today’s Douglass High School (900 N MLK) was the site of the first State Fairgrounds. The area was near the path of the unchannelled North Canadian River and experienced flooding. The Fairgrounds was an incredibly dense, predominately Black neighborhood. Because of redlining and other systemically racist house practices, the majority of African American residents of Oklahoma City primarily lived in a few specific neighborhoods.'
         },
-        html: '<p><strong>This is a test!</strong></p>'
+        html: '<p><strong>The East Side Theater and its neighboring commercial development was the dream of George Richardson and J.W. Sanford, Sr.</strong></p>'
     },
     {
         text: 'Bill\'s Cleaners is cool',
         image: {
-            src: '../public/images/714 Interior 1.tif',
+            src: '../public/714/images/714 Interior 1.tif',
             alt: 'Image of 714 Bath Avenue Interior Circa 1950',
             caption: 'Cool images'
         },
@@ -1073,7 +1073,7 @@ const informationArray = [
     {
         text: 'This location, 714 Bath Ave, was a variety of domino parlors. Like pool halls, domino was a dominant form of leisure in the twentieth century, particularly for men.',
         image: {
-            src: './public/images/714 Interior 1.tif',
+            src: '../public/images/714/714 Interior 1.tif',
             alt: 'Image of 714 Bath Avenue Interior Circa 1950',
             caption: "Domino's Billiard Hall - 714 Bath Avenue - ~1950"
         },
