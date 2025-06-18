@@ -1925,6 +1925,6 @@ function render(time) {
 }
 
 requestAnimationFrame(render);
-}
+
 
 main();
