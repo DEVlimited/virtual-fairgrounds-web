@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
-import { Euler }  from 'three';
+import { Euler } from 'three';
 
 const _NOISE_GLSL = `
 //
@@ -407,19 +407,19 @@ class SafeTextureLODManager {
 
     // More conservative texture processing
     async processGLTFTextures(gltfScene, options = {}) {
-        const { 
-            enableLODs = true, 
+        const {
+            enableLODs = true,
             maxTextureSize = 1024, // Can be changed to 512 for less memory pressure
-            compressionQuality = 0.8 
+            compressionQuality = 0.8
         } = options;
-        
+
         console.log('Processing GLTF textures...');
-        
+
         // Process materials more safely
         gltfScene.traverse((child) => {
             if (child.isMesh && child.material) {
                 const materials = Array.isArray(child.material) ? child.material : [child.material];
-                
+
                 materials.forEach(material => {
                     // Process ALL material types that support textures
                     if (this.isSupportedMaterial(material)) {
@@ -428,15 +428,15 @@ class SafeTextureLODManager {
                 });
             }
         });
-        
+
         console.log('Texture processing complete');
     }
 
     // Check if material type supports texture optimization
     isSupportedMaterial(material) {
         return (
-            material.isMeshStandardMaterial || 
-            material.isMeshBasicMaterial || 
+            material.isMeshStandardMaterial ||
+            material.isMeshBasicMaterial ||
             material.isMeshPhysicalMaterial ||
             material.isMeshLambertMaterial ||
             material.isMeshPhongMaterial
@@ -453,7 +453,7 @@ class SafeTextureLODManager {
             'transmissionMap', 'thicknessMap', 'sheenColorMap', 'sheenRoughnessMap',
             'specularIntensityMap', 'specularColorMap', 'iridescenceMap', 'iridescenceThicknessMap'
         ];
-        
+
         textureProperties.forEach(prop => {
             if (material[prop] && !this.processedTextures.has(material[prop])) {
                 try {
@@ -472,7 +472,7 @@ class SafeTextureLODManager {
         }
 
         const { width, height } = texture.image;
-        
+
         // Only resize if texture is larger than maxSize
         if (width <= maxSize && height <= maxSize) {
             return texture;
@@ -481,18 +481,18 @@ class SafeTextureLODManager {
         try {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
-            
+
             const scale = Math.min(maxSize / width, maxSize / height);
             canvas.width = Math.floor(width * scale);
             canvas.height = Math.floor(height * scale);
-            
+
             ctx.drawImage(texture.image, 0, 0, canvas.width, canvas.height);
-            
+
             const optimizedTexture = new THREE.CanvasTexture(canvas);
-            
+
             // Copy all texture properties to maintain compatibility
             this.copyTextureProperties(texture, optimizedTexture);
-            
+
             return optimizedTexture;
         } catch (error) {
             console.warn('Texture optimization failed, using original:', error);
@@ -526,17 +526,17 @@ class SafeTextureLODManager {
 
 function setupOptimizedTextureSystem(gltfScene, scene, camera) {
     const safeTextureLOD = new SafeTextureLODManager();
-    
+
     // Store references for distance-based optimization
     const meshes = [];
     const originalTextures = new Map();
     const lowResTextures = new Map();
-    
+
     // Collect all meshes and store texture references
     gltfScene.traverse((child) => {
         if (child.isMesh && child.material) {
             meshes.push({ mesh: child, position: child.getWorldPosition(new THREE.Vector3()) });
-            
+
             const materials = Array.isArray(child.material) ? child.material : [child.material];
             materials.forEach(material => {
                 if (safeTextureLOD.isSupportedMaterial(material)) {
@@ -554,7 +554,7 @@ function setupOptimizedTextureSystem(gltfScene, scene, camera) {
             });
         }
     });
-    
+
     // Process textures with error handling
     safeTextureLOD.processGLTFTextures(gltfScene, {
         enableLODs: true,
@@ -569,25 +569,25 @@ function setupOptimizedTextureSystem(gltfScene, scene, camera) {
         const cameraPosition = camera.position;
         const HIGH_QUALITY_DISTANCE = 25;
         const LOW_QUALITY_DISTANCE = 100;
-        
+
         meshes.forEach(({ mesh }) => {
             try {
                 // Get current world position
                 const meshPosition = mesh.getWorldPosition(new THREE.Vector3());
                 const distance = cameraPosition.distanceTo(meshPosition);
-                
+
                 const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
                 materials.forEach(material => {
                     if (safeTextureLOD.isSupportedMaterial(material)) {
                         const useHighRes = distance < HIGH_QUALITY_DISTANCE;
                         const useLowRes = distance > LOW_QUALITY_DISTANCE;
-                        
+
                         const textureProps = ['map', 'normalMap', 'roughnessMap', 'metalnessMap'];
                         textureProps.forEach(prop => {
                             if (material[prop]) {
                                 const original = originalTextures.get(material[prop]);
                                 const lowRes = lowResTextures.get(material[prop]);
-                                
+
                                 if (useHighRes && original) {
                                     material[prop] = original;
                                 } else if (useLowRes && lowRes) {
@@ -701,7 +701,7 @@ class popUpCircle {
     }
 
     createSphereRadius(scene) {
-        if(this.circleObject) scene.remove(this.circleObject);
+        if (this.circleObject) scene.remove(this.circleObject);
 
         const newSphereMaterial = new THREE.MeshBasicMaterial({
             color: 0x00C6FF,
@@ -717,7 +717,7 @@ class popUpCircle {
         this.circleObject.rotation.x = (90 * Math.PI) / 180;
 
         scene.add(this.circleObject);
-        return(this.circleObject);
+        return (this.circleObject);
     }
 
     checkForIntersection(camera) {
@@ -730,7 +730,7 @@ class popUpCircle {
 
         if (distance < this.geometryRadius) {
             this.cameraInside = true;
-        } else if ( distance >= this.geometryRadius) {
+        } else if (distance >= this.geometryRadius) {
             this.cameraInside = false;
         }
     }
@@ -747,7 +747,7 @@ const PopupManager = {
     popUpActive: false,
 
     // This just unhides the pop up nothing special
-    show: function(title = 'Popup', content = '') {
+    show: function (title = 'Popup', content = '') {
 
         this.title.textContent = title;
 
@@ -762,7 +762,7 @@ const PopupManager = {
     },
 
     // self explanatory...
-    hide: function() {
+    hide: function () {
 
         this.overlay.classList.remove('show');
         this.container.classList.remove('show');
@@ -777,7 +777,7 @@ const PopupManager = {
     },
 
     // This basically is where it defines if it is a image or text pop up. Can be edited to do anything tbh
-    generatePopup: function(title, config) {
+    generatePopup: function (title, config) {
         let content = '';
 
         if (config.text) {
@@ -794,7 +794,7 @@ const PopupManager = {
         if (config.html) {
             content += config.html;
         }
-        
+
         this.show(title, content);
     }
 };
@@ -866,17 +866,17 @@ class boundaryBox {
             this.rotationParams.z,
             'XYZ'
         ));
-        
+
         // Create translation matrix to move to/from the boundary center
         const centerTranslation = new THREE.Matrix4();
         centerTranslation.makeTranslation(-this.center.x, -this.center.y, -this.center.z);
-        
+
         const centerTranslationInverse = new THREE.Matrix4();
         centerTranslationInverse.makeTranslation(this.center.x, this.center.y, this.center.z);
-        
+
         // World to Local: translate to origin, then apply inverse rotation
         this.worldToLocal.multiplyMatrices(rotationMatrix.clone().invert(), centerTranslation);
-        
+
         // Local to World: apply rotation, then translate back
         this.localToWorld.multiplyMatrices(centerTranslationInverse, rotationMatrix);
     }
@@ -896,18 +896,18 @@ class boundaryBox {
     // Create a visible box to represent the boundary (for debugging)
     createVisualization(scene) {
         if (this.boundaryBox) scene.remove(this.boundaryBox);
-        
+
         const geometry = new THREE.BoxGeometry(
-        this.max.x - this.min.x,
-        this.max.y - this.min.y,
-        this.max.z - this.min.z
+            this.max.x - this.min.x,
+            this.max.y - this.min.y,
+            this.max.z - this.min.z
         );
-        
+
         this.boundaryBox = new THREE.Mesh(geometry, this.visualizationMaterial);
         this.boundaryBox.position.set(
-        (this.max.x + this.min.x) / 2,
-        (this.max.y + this.min.y) / 2,
-        (this.max.z + this.min.z) / 2
+            (this.max.x + this.min.x) / 2,
+            (this.max.y + this.min.y) / 2,
+            (this.max.z + this.min.z) / 2
         );
 
         this.updateRotation();
@@ -921,7 +921,7 @@ class boundaryBox {
         localPosition.applyMatrix4(this.worldToLocal);
         return localPosition;
     }
-    
+
     // Transform a local position back to world coordinates
     localToWorldPosition(localPosition) {
         const worldPosition = localPosition.clone();
@@ -933,12 +933,12 @@ class boundaryBox {
     isInBounds(worldPosition) {
         // Convert world position to local coordinate system
         const localPosition = this.worldToLocalPosition(worldPosition);
-        
+
         // Now check bounds in the local coordinate system
         // In local space, our bounds are always axis-aligned
         const localMin = this.min.clone().sub(this.center);
         const localMax = this.max.clone().sub(this.center);
-        
+
         return (
             localPosition.x >= localMin.x && localPosition.x <= localMax.x &&
             localPosition.y >= localMin.y && localPosition.y <= localMax.y &&
@@ -950,15 +950,15 @@ class boundaryBox {
     clampPosition(worldPosition) {
         // Convert to local coordinates
         const localPosition = this.worldToLocalPosition(worldPosition);
-        
+
         // Clamp in local space where bounds are axis-aligned
         const localMin = this.min.clone().sub(this.center);
         const localMax = this.max.clone().sub(this.center);
-        
+
         localPosition.x = Math.max(localMin.x, Math.min(localMax.x, localPosition.x));
         localPosition.y = Math.max(localMin.y, Math.min(localMax.y, localPosition.y));
         localPosition.z = Math.max(localMin.z, Math.min(localMax.z, localPosition.z));
-        
+
         // Convert back to world coordinates
         return this.localToWorldPosition(localPosition);
     }
@@ -992,52 +992,52 @@ class boundaryBox {
 // SMH i need more coffee cause the answer was so simple yet I couldnt think about it
 // Function to integrate with existing PointerLockControls
 function setupCameraBoundaries(scene, camera, controls) {
-  // Create boundaries - adjust these values to match your scene
-  const boundary = new boundaryBox(-62, -35, 32, 32, -34, 84);
-  
-  // Uncomment to visualize for debugging
-  boundary.createVisualization(scene);
-  
-  // Store the previous valid position
-  let lastValidPosition = camera.position.clone();
-  
-  // Original moveRight and moveForward functions
-  const originalMoveRight = controls.moveRight;
-  const originalMoveForward = controls.moveForward;
-  const originalMouseMove = controls.onMouseMove;
-  
-  // Override the movement functions to add boundary checks
-  controls.moveRight = function(distance) {
-    // Store the current position before movement
-    lastValidPosition.copy(camera.position);
-    
-    // Call the original function
-    originalMoveRight.call(this, distance);
-    
-    // Check if new position is valid
-    boundary.constrainCamera(camera, lastValidPosition);
-  };
-  
-  controls.moveForward = function(distance) {
-    // Store the current position before movement
-    lastValidPosition.copy(camera.position);
-    
-    // Call the original function
-    originalMoveForward.call(this, distance);
-    
-    // Check if new position is valid
-    boundary.constrainCamera(camera, lastValidPosition);
-  };
+    // Create boundaries - adjust these values to match your scene
+    const boundary = new boundaryBox(-62, -35, 32, 32, -34, 84);
 
-  controls.onMouseMove = function(event) {
-    if ( middleMouseClicked ) {
-        return;
+    // Uncomment to visualize for debugging
+    boundary.createVisualization(scene);
+
+    // Store the previous valid position
+    let lastValidPosition = camera.position.clone();
+
+    // Original moveRight and moveForward functions
+    const originalMoveRight = controls.moveRight;
+    const originalMoveForward = controls.moveForward;
+    const originalMouseMove = controls.onMouseMove;
+
+    // Override the movement functions to add boundary checks
+    controls.moveRight = function (distance) {
+        // Store the current position before movement
+        lastValidPosition.copy(camera.position);
+
+        // Call the original function
+        originalMoveRight.call(this, distance);
+
+        // Check if new position is valid
+        boundary.constrainCamera(camera, lastValidPosition);
+    };
+
+    controls.moveForward = function (distance) {
+        // Store the current position before movement
+        lastValidPosition.copy(camera.position);
+
+        // Call the original function
+        originalMoveForward.call(this, distance);
+
+        // Check if new position is valid
+        boundary.constrainCamera(camera, lastValidPosition);
+    };
+
+    controls.onMouseMove = function (event) {
+        if (middleMouseClicked) {
+            return;
+        }
+
+        originalMouseMove.call(this, event);
     }
 
-    originalMouseMove.call(this, event);
-  }
-  
-  return boundary;
+    return boundary;
 }
 
 const informationArray = [
@@ -1064,20 +1064,20 @@ const informationArray = [
     {
         text: 'Bill\'s Cleaners is cool',
         image: {
-            src: 'https://picsum.photos/350/200',
-            alt: 'Filler Image',
+            src: '../images/714 Interior 1.tif',
+            alt: 'Image of 714 Bath Avenue Interior Circa 1950',
             caption: 'Cool images'
         },
         html: '<p><strong>Heard he was good at bowling!</strong></p>'
     },
     {
-        text: 'Pool, Beer, and Dominos!',
+        text: 'This location, 714 Bath Ave, was a variety of domino parlors. Like pool halls, domino was a dominant form of leisure in the twentieth century, particularly for men.',
         image: {
-            src: 'https://picsum.photos/350/200',
-            alt: 'Filler Image',
-            caption: 'Cool images'
+            src: '../images/714 Interior 1.tif',
+            alt: 'Image of 714 Bath Avenue Interior Circa 1950',
+            caption: "Domino's Billiard Hall - 714 Bath Avenue - ~1950"
         },
-        html: '<p><strong>The fan was a pain I heard</strong></p>'
+        html: '<p><strong>This room of the model was informed by actual interior photos of the building shown here.</strong></p>'
     },
     {
         text: 'Records!',
@@ -1092,7 +1092,7 @@ const informationArray = [
 
 function main() {
     setupCustomFogShaders();
-    
+
     const canvas = document.querySelector('#c');
     const renderer = new THREE.WebGLRenderer({ antialias: true, canvas });
     const baseURL = 'https://storage.googleapis.com/fairgrounds-model/';
@@ -1107,7 +1107,7 @@ function main() {
     let isGUIMode = false;
     let guiFocused = false;
 
-    let cameraEuler = new Euler( 0, 0, 0, 'YXZ' );
+    let cameraEuler = new Euler(0, 0, 0, 'YXZ');
 
     let cameraBoundarySystem;
     let prevTime = performance.now();
@@ -1128,8 +1128,8 @@ function main() {
     loadingDiv.textContent = 'Loading model (0%)...';
     document.body.appendChild(loadingDiv);
 
-    const blocker = document.getElementById( 'blocker' );
-    const instructions = document.getElementById( 'instructions' );
+    const blocker = document.getElementById('blocker');
+    const instructions = document.getElementById('instructions');
     let instructionsActive = true;
 
     // Camera setup
@@ -1146,16 +1146,16 @@ function main() {
     function setupOptimizedRendering(scene, camera, renderer) {
         // Create the culling/LOD manager
         const cullingLODManager = new AdvancedCullingLODManager(camera, renderer);
-        
+
         // Store reference globally so we can use it after model loads
         window.cullingLODManager = cullingLODManager;
-        
+
         return cullingLODManager;
     }
 
     // Camera GUI controls
     const cameraResetButton = {
-        reset_position: function() {
+        reset_position: function () {
             camera.position.set(-53.35, 32, 4.64);
         }
     };
@@ -1175,7 +1175,7 @@ function main() {
     controls.minPolarAngle = (60 * Math.PI) / 180;
 
     // Starter instructions/fully locked
-    instructions.addEventListener( 'click', function () {
+    instructions.addEventListener('click', function () {
         if (!isGUIMode && !PopupManager.popUpActive) {
             controls.lock();
             instructionsActive = false;
@@ -1185,7 +1185,7 @@ function main() {
     });
 
     // Close popup listener
-    document.getElementById('popup').addEventListener('click', function(e) {
+    document.getElementById('popup').addEventListener('click', function (e) {
         if (e.target === this) {
             closePopup();
             controls.lock();
@@ -1194,7 +1194,7 @@ function main() {
     });
 
     // The X on the popup listener
-    document.getElementById('popup-close-btn').addEventListener('click', function(e) {
+    document.getElementById('popup-close-btn').addEventListener('click', function (e) {
         if (e.target === this) {
             closePopup();
             controls.lock();
@@ -1203,10 +1203,10 @@ function main() {
     });
 
     // Unlock listener that checks if instructions needs to be activated
-    controls.addEventListener( 'unlock', function () {
+    controls.addEventListener('unlock', function () {
         controls.unlock();
         console.log('Controls have been unlocked');
-        if(!isGUIMode && !PopupManager.popUpActive ) {
+        if (!isGUIMode && !PopupManager.popUpActive) {
             instructionsActive = true;
             instructions.style.display = '';
             blocker.style.display = '';
@@ -1220,20 +1220,20 @@ function main() {
         console.log('controls have been locked');
     })
 
-    scene.add( controls.object );
+    scene.add(controls.object);
 
 
     // This is to toggle the GUI mode so that you can use your mouse to mess with the GUI
     function toggleGUIMode() {
         isGUIMode = !isGUIMode;
 
-        if ( isGUIMode && !instructionsActive && !PopupManager.popUpActive ) {
-            if ( controls.isLocked ) {
+        if (isGUIMode && !instructionsActive && !PopupManager.popUpActive) {
+            if (controls.isLocked) {
                 controls.unlock();
             }
             console.log('GUI Mode: Activated - Mouse is now free for GUI interaction');
             updateGUIVisibility();
-        } else if(!instructionsActive && !PopupManager.popUpActive ) {  
+        } else if (!instructionsActive && !PopupManager.popUpActive) {
             blurAllGUIElements();
             controls.lock();
             console.log('GUID Mode: Deactivated - Camera Controls active');
@@ -1245,14 +1245,14 @@ function main() {
         if (document.activeElement && document.activeElement !== document.body) {
             document.activeElement.blur();
         }
-        
+
         const guiInputs = document.querySelectorAll('.lil-gui input, .lil-gui select, .lil-gui button');
         guiInputs.forEach(element => {
             if (element === document.activeElement) {
                 element.blur();
             }
         });
-        
+
         canvas.focus();
     }
 
@@ -1285,10 +1285,10 @@ function main() {
     // Function to check if an element is a GUI element 
     function isGUIElement(element) {
         while (element && element !== document.body) {
-            if (element.matches('input[type="range"]') || 
+            if (element.matches('input[type="range"]') ||
                 element.classList.contains('slider') ||
                 element.classList.contains('range')) {
-                return false; 
+                return false;
             }
             if (element.matches('.lil-gui, .lil-gui *, .dg, .dg *')) {
                 return true;
@@ -1311,7 +1311,7 @@ function main() {
 
     document.addEventListener('focusout', (event) => {
         console.log('Unfocus target:', event.target);
-        
+
         if (isGUIElement(event.target)) {
             console.log('GUI element unfocused');
             guiFocused = false;
@@ -1327,22 +1327,22 @@ function main() {
 
     document.addEventListener('focusin', (event) => {
         console.log('Focus target:', event.target);
-        
+
         if (isGUIElement(event.target)) {
             console.log('GUI element focused - stopping movement');
             guiFocused = true;
-            
+
             // Reset all movement
             resetMovementState();
         }
     });
 
     //This is the movement event function for the keys when they go up and down
-    const onKeyDown = function ( event ) {
+    const onKeyDown = function (event) {
 
         if (guiFocused) return;
 
-        switch ( event.code ) {
+        switch (event.code) {
             case 'ArrowUp':
             case 'KeyW':
                 moveForward = true;
@@ -1362,7 +1362,7 @@ function main() {
         }
     };
 
-    const rotateTheCamera = function ( event ) {
+    const rotateTheCamera = function (event) {
         if (guiFocused) return;
 
         switch (event.code) {
@@ -1379,9 +1379,9 @@ function main() {
                 break;
         }
     }
-    const onKeyUp = function ( event ) {
+    const onKeyUp = function (event) {
 
-        switch ( event.code ) {
+        switch (event.code) {
             case 'ArrowUp':
             case 'KeyW':
                 moveForward = false;
@@ -1401,9 +1401,9 @@ function main() {
         }
     };
 
-    document.addEventListener( 'keydown', onKeyDown );
-    document.addEventListener( 'keyup', onKeyUp );
-    document.addEventListener( 'keydown', rotateTheCamera);
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keyup', onKeyUp);
+    document.addEventListener('keydown', rotateTheCamera);
 
     document.addEventListener('mousedown', (event) => {
         if (event.button === 1) {
@@ -1430,10 +1430,10 @@ function main() {
     });
 
     const cullingLODManager = setupOptimizedRendering(scene, camera, renderer);
-    
+
     // Add GUI controls for the culling system
     const optimizationFolder = gui.addFolder('Performance Optimization');
-    
+
     // LOD distance controls
     const lodControls = {
         lodDistances: { high: 40, medium: 100, low: 150, cull: 200 },
@@ -1456,7 +1456,7 @@ function main() {
 
     function setupBoundaries() {
         cameraBoundarySystem = setupCameraBoundaries(scene, camera, controls);
-        
+
         const boundaryFolder = gui.addFolder('Camera Boundaries');
         boundaryFolder.add(cameraBoundarySystem.min, 'x', -150, 0).name('Min X');
         boundaryFolder.add(cameraBoundarySystem.max, 'x', -100, 0).name('Max X');
@@ -1473,14 +1473,14 @@ function main() {
                 cameraBoundarySystem.rotationParams.x = (value * Math.PI) / 180;
                 cameraBoundarySystem.updateRotation();
             });
-        
+
         boundaryFolder.add(cameraBoundarySystem.rotationParams, 'yDegrees', -180, 180, 1)
             .name('Y Rotation (°)')
             .onChange((value) => {
                 cameraBoundarySystem.rotationParams.y = (value * Math.PI) / 180;
                 cameraBoundarySystem.updateRotation();
             });
-        
+
         boundaryFolder.add(cameraBoundarySystem.rotationParams, 'zDegrees', -180, 180, 1)
             .name('Z Rotation (°)')
             .onChange((value) => {
@@ -1501,12 +1501,12 @@ function main() {
     const theaterSphere = new popUpCircle(-32, 31, 7, 8);
     theaterSphere.createSphereRadius(scene);
     theaterGUI.add(theaterSphere.position, 'x', -50, 50, 1).onChange((value) => {
-        if ( theaterSphere.circleObject) {
+        if (theaterSphere.circleObject) {
             theaterSphere.circleObject.position.x = value;
         }
     });
     theaterGUI.add(theaterSphere.position, 'z', -20, 20, 1).onChange((value) => {
-        if ( theaterSphere.circleObject) {
+        if (theaterSphere.circleObject) {
             theaterSphere.circleObject.position.z = value;
         }
     });
@@ -1514,12 +1514,12 @@ function main() {
     const cleanersSphere = new popUpCircle(-35, 31, 32, 4);
     cleanersSphere.createSphereRadius(scene);
     cleanersGUI.add(cleanersSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
-        if ( cleanersSphere.circleObject) {
+        if (cleanersSphere.circleObject) {
             cleanersSphere.circleObject.position.x = value;
         }
     });
     cleanersGUI.add(cleanersSphere.position, 'z', -20, 60, 0.1).onChange((value) => {
-        if ( cleanersSphere.circleObject) {
+        if (cleanersSphere.circleObject) {
             cleanersSphere.circleObject.position.z = value;
         }
     });
@@ -1527,12 +1527,12 @@ function main() {
     const dominosSphere = new popUpCircle(-35.2, 31, 57.8, 3);
     dominosSphere.createSphereRadius(scene);
     dominosGUI.add(dominosSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
-        if ( dominosSphere.circleObject) {
+        if (dominosSphere.circleObject) {
             dominosSphere.circleObject.position.x = value;
         }
     });
     dominosGUI.add(dominosSphere.position, 'z', -20, 60, 0.1).onChange((value) => {
-        if ( dominosSphere.circleObject) {
+        if (dominosSphere.circleObject) {
             dominosSphere.circleObject.position.z = value;
         }
     });
@@ -1540,54 +1540,54 @@ function main() {
     const recordsSphere = new popUpCircle(-36, 31, 63, 2);
     recordsSphere.createSphereRadius(scene);
     recordsGUI.add(recordsSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
-        if ( recordsSphere.circleObject) {
+        if (recordsSphere.circleObject) {
             recordsSphere.circleObject.position.x = value;
         }
     });
     recordsGUI.add(recordsSphere.position, 'z', -20, 100, 0.1).onChange((value) => {
-        if ( recordsSphere.circleObject) {
+        if (recordsSphere.circleObject) {
             recordsSphere.circleObject.position.z = value;
         }
     });
 
     popCirclesGUI.open();
 
-    const interactListener = function ( event ) {
+    const interactListener = function (event) {
         if (isGUIMode || instructionsActive) return;
 
         switch (event.code) {
             case 'KeyF':
                 console.log('Interacted!');
                 if (theaterSphere.cameraInside) {
-                    PopupManager.popUpActive  = true;
+                    PopupManager.popUpActive = true;
                     PopupManager.generatePopup('Theater', informationArray[0]);
                     controls.unlock();
                     event.preventDefault();
                     break;
-                }else if (cleanersSphere.cameraInside) {
-                    PopupManager.popUpActive  = true;
+                } else if (cleanersSphere.cameraInside) {
+                    PopupManager.popUpActive = true;
                     PopupManager.generatePopup('Bills Cleaners', informationArray[1]);
                     controls.unlock();
                     event.preventDefault();
                     break;
-                }else if (dominosSphere.cameraInside) {
-                    PopupManager.popUpActive  = true;
+                } else if (dominosSphere.cameraInside) {
+                    PopupManager.popUpActive = true;
                     PopupManager.generatePopup('Pool Dominos', informationArray[2]);
                     controls.unlock();
                     event.preventDefault();
                     break;
-                }else if (recordsSphere.cameraInside) {
-                    PopupManager.popUpActive  = true;
+                } else if (recordsSphere.cameraInside) {
+                    PopupManager.popUpActive = true;
                     PopupManager.generatePopup('Record Shop', informationArray[3]);
                     controls.unlock();
                     event.preventDefault();
                     break;
                 } else {
-                    break; 
-                }  
+                    break;
+                }
         }
     }
-    document.addEventListener( 'keydown', interactListener);
+    document.addEventListener('keydown', interactListener);
 
     {
         const skyColor = 0xB1E1FF;
@@ -1640,7 +1640,7 @@ function main() {
             skySphereMaterial.side = THREE.BackSide;
             skySphereMesh = new THREE.Mesh(skySphereGeometry, skySphereMaterial);
             scene.add(skySphereMesh);
-            
+
             // Now that the skybox is loaded, set up the GUI control
             setupSkyboxGUI();
         });
@@ -1649,20 +1649,20 @@ function main() {
 
     // Function to add a new skybox from file
     function addSkyboxFromFile(file) {
-        const fileName = file.name.split('.')[0]; 
-        const customName = `custom_${fileName}_${Date.now()}`; 
-        
+        const fileName = file.name.split('.')[0];
+        const customName = `custom_${fileName}_${Date.now()}`;
+
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = function (e) {
             const loader = new THREE.TextureLoader();
             loader.load(e.target.result, (texture) => {
                 texture.mapping = THREE.EquirectangularReflectionMapping;
                 texture.colorSpace = THREE.SRGBColorSpace;
-                
+
                 skyBoxTextures[customName] = texture;
 
                 updateSkyboxDropdown();
-                
+
                 console.log(`Added custom skybox: ${customName}`);
             });
         };
@@ -1679,8 +1679,8 @@ function main() {
             const skyBoxFolder = gui.folders.find(folder => folder._title === 'SkyBox');
             skyboxDropdown = skyBoxFolder.add(skyboxController, 'currentSkybox', availableOptions)
                 .name('Select Skybox');
-            
-            skyboxDropdown.onChange(function(value) {
+
+            skyboxDropdown.onChange(function (value) {
                 skyboxController.changeSkyBox(value);
             });
         }
@@ -1690,9 +1690,9 @@ function main() {
     var skyboxController = {
         // This property will hold the current skybox selection
         currentSkybox: 'pinkSky', // Set the initial value to match what we load by default
-        
+
         // This function handles changing the skybox
-        changeSkyBox: function(newTextureName) {
+        changeSkyBox: function (newTextureName) {
             if (skySphereMesh && skyBoxTextures[newTextureName]) {
                 controls.disconnect();
                 resetMovementState();
@@ -1711,24 +1711,24 @@ function main() {
     // Separate function to set up the GUI control after the skybox is loaded
     function setupSkyboxGUI() {
         const skyBoxFolder = gui.addFolder('SkyBox');
-        
+
         // Create the dropdown control
         skyboxDropdown = skyBoxFolder.add(skyboxController, 'currentSkybox', ['pinkSky', 'blueSky', 'nightSky', 'okcSunset'])
             .name('Select Skybox');
-        
+
         // Set up the onChange listener to actually change the skybox
-        skyboxDropdown.onChange(function(value) {
+        skyboxDropdown.onChange(function (value) {
             skyboxController.changeSkyBox(value);
         });
 
         const fileController = {
-            uploadSkybox: function() {
+            uploadSkybox: function () {
                 const input = document.createElement('input');
                 input.type = 'file';
                 input.accept = 'image/*,.hdr';
                 input.multiple = true;
-                
-                input.onchange = function(e) {
+
+                input.onchange = function (e) {
                     const files = Array.from(e.target.files);
                     files.forEach(file => {
                         if (file.type.startsWith('image/')) {
@@ -1736,13 +1736,13 @@ function main() {
                         }
                     });
                 };
-                
+
                 input.click();
             }
         };
-            
+
         skyBoxFolder.add(fileController, 'uploadSkybox').name('Upload Skybox');
-        
+
         skyBoxFolder.open(); // Optional: opens the folder by default
     }
 
@@ -1760,7 +1760,7 @@ function main() {
     {
         const dracoLoader = new DRACOLoader();
         dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
-        dracoLoader.setDecoderConfig({ type: 'js'});
+        dracoLoader.setDecoderConfig({ type: 'js' });
         dracoLoader.preload();
 
         const gltfLoader = new GLTFLoader();
@@ -1775,17 +1775,17 @@ function main() {
 
                     const updateTextureQuality = setupOptimizedTextureSystem(root, scene, camera);
                     window.updateTextureQuality = updateTextureQuality;
-                    
+
                     window.cullingLODManager.injectIntoGLTFScene(root, lodControls);
                     scene.add(root);
                     console.log(dumpObject(root).join('\n'));
-                    
+
                     setupBoundaries();
                     blocker.style.display = '';
                     instructions.style.display = '';
 
                     dracoLoader.dispose();
-                    
+
                 } catch (error) {
                     console.error('Error processing loaded model:', error);
                     loadingDiv.textContent = 'Error processing model. Check console for details.';
@@ -1850,7 +1850,7 @@ function main() {
 
             const pointLockTime = performance.now();
 
-            if ( controls.isLocked === true && !isGUIMode) {
+            if (controls.isLocked === true && !isGUIMode) {
                 theaterSphere.checkForIntersection(camera);
                 cleanersSphere.checkForIntersection(camera);
                 dominosSphere.checkForIntersection(camera);
@@ -1865,7 +1865,7 @@ function main() {
                 }
             }
 
-            if ( controls.isLocked === true || isGUIMode  && !PopupManager.popUpActive && !guiFocused){
+            if (controls.isLocked === true || isGUIMode && !PopupManager.popUpActive && !guiFocused) {
                 const delta = (time - prevTime) / 1000;
 
                 velocity.x -= velocity.x * 10.0 * delta;
