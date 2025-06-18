@@ -1358,13 +1358,11 @@ function main() {
             case 'ArrowRight':
             case 'KeyD':
                 moveRight = true;
-                break;
+                break; a
         }
     };
 
     const rotateTheCamera = function (event) {
-        if (guiFocused) return;
-
         switch (event.code) {
             case 'KeyQ':
             case 'ArrowLeft':
@@ -1380,551 +1378,550 @@ function main() {
                 camera.quaternion.setFromEuler(cameraEuler);
                 break;
         }
-    }
-    const onKeyUp = function (event) {
+        const onKeyUp = function (event) {
 
-        switch (event.code) {
-            case 'ArrowUp':
-            case 'KeyW':
-                moveForward = false;
-                break;
-            case 'KeyA':
-                moveLeft = false;
-                break;
-            case 'ArrowDown':
-            case 'KeyS':
-                moveBackward = false;
-                break;
-            case 'KeyD':
-                moveRight = false;
-                break;
-        }
-    };
+            switch (event.code) {
+                case 'ArrowUp':
+                case 'KeyW':
+                    moveForward = false;
+                    break;
+                case 'KeyA':
+                    moveLeft = false;
+                    break;
+                case 'ArrowDown':
+                case 'KeyS':
+                    moveBackward = false;
+                    break;
+                case 'KeyD':
+                    moveRight = false;
+                    break;
+            }
+        };
 
-    document.addEventListener('keydown', onKeyDown);
-    document.addEventListener('keyup', onKeyUp);
-    document.addEventListener('keydown', rotateTheCamera);
+        document.addEventListener('keydown', onKeyDown);
+        document.addEventListener('keyup', onKeyUp);
+        document.addEventListener('keydown', rotateTheCamera);
 
-    document.addEventListener('mousedown', (event) => {
-        if (event.button === 1) {
-            event.preventDefault();
-            toggleGUIMode();
-            return;
-        }
-    });
+        document.addEventListener('mousedown', (event) => {
+            if (event.button === 1) {
+                event.preventDefault();
+                toggleGUIMode();
+                return;
+            }
+        });
 
-    document.addEventListener('keydown', (event) => {
-        if (event.code === 'Space') {
-            event.preventDefault();
-            toggleGUIMode();
-            return;
-        }
-    });
+        document.addEventListener('keydown', (event) => {
+            if (event.code === 'KeySpace') {
+                event.preventDefault();
+                toggleGUIMode();
+                return;
+            }
+        });
 
-    if (isGUIElement(event.target)) {
-        console.log('GUI element clicked:', event.target);
-        guiFocused = true;
-        resetMovementState();
-    }
-};
-
-document.addEventListener('mousedown', (event) => {
-    if (event.target === canvas || !isGUIElement(event.target)) {
-        if (guiFocused) {
-            console.log('Clicked outside GUI - clearing focus state');
-            guiFocused = false;
+        if (isGUIElement(event.target)) {
+            console.log('GUI element clicked:', event.target);
+            guiFocused = true;
             resetMovementState();
         }
-    }
-});
-
-const cullingLODManager = setupOptimizedRendering(scene, camera, renderer);
-
-// Add GUI controls for the culling system
-const optimizationFolder = gui.addFolder('Performance Optimization');
-
-// LOD distance controls
-const lodControls = {
-    lodDistances: { high: 40, medium: 100, low: 150, cull: 200 },
-    enableCulling: true,
-    enableLOD: true
-};
-
-// Scene graph dump function
-function dumpObject(obj, lines = [], isLast = true, prefix = '') {
-    const localPrefix = isLast ? '└─' : '├─';
-    lines.push(`${prefix}${prefix ? localPrefix : ''}${obj.name || '*no-name*'} [${obj.type}]`);
-    const newPrefix = prefix + (isLast ? '  ' : '│ ');
-    const lastNdx = obj.children.length - 1;
-    obj.children.forEach((child, ndx) => {
-        const isLast = ndx === lastNdx;
-        dumpObject(child, lines, isLast, newPrefix);
-    });
-    return lines;
-}
-
-function setupBoundaries() {
-    cameraBoundarySystem = setupCameraBoundaries(scene, camera, controls);
-
-    const boundaryFolder = gui.addFolder('Camera Boundaries');
-    boundaryFolder.add(cameraBoundarySystem.min, 'x', -150, 0).name('Min X');
-    boundaryFolder.add(cameraBoundarySystem.max, 'x', -100, 0).name('Max X');
-    boundaryFolder.add(cameraBoundarySystem.min, 'z', -150, 0).name('Min Z');
-    boundaryFolder.add(cameraBoundarySystem.max, 'z', 0, 150).name('Max Z');
-    // This is what claude created to setup the rotation GUI
-    // Add rotation controls using degrees (more user-friendly)
-    // The key insight here is that we're directly manipulating the object's properties
-    // and then calling updateRotation() whenever a value changes
-    boundaryFolder.add(cameraBoundarySystem.rotationParams, 'xDegrees', -180, 180, 1)
-        .name('X Rotation (°)')
-        .onChange((value) => {
-            // Convert degrees to radians and update the object
-            cameraBoundarySystem.rotationParams.x = (value * Math.PI) / 180;
-            cameraBoundarySystem.updateRotation();
-        });
-
-    boundaryFolder.add(cameraBoundarySystem.rotationParams, 'yDegrees', -180, 180, 1)
-        .name('Y Rotation (°)')
-        .onChange((value) => {
-            cameraBoundarySystem.rotationParams.y = (value * Math.PI) / 180;
-            cameraBoundarySystem.updateRotation();
-        });
-
-    boundaryFolder.add(cameraBoundarySystem.rotationParams, 'zDegrees', -180, 180, 1)
-        .name('Z Rotation (°)')
-        .onChange((value) => {
-            cameraBoundarySystem.rotationParams.z = (value * Math.PI) / 180;
-            cameraBoundarySystem.updateRotation();
-        });
-    boundaryFolder.open();
-}
-
-// Intersection pop Circles!
-const popCirclesGUI = gui.addFolder('Popup Circles');
-const theaterGUI = popCirclesGUI.addFolder('Theater Circle');
-const cleanersGUI = popCirclesGUI.addFolder('Bills Circle');
-const dominosGUI = popCirclesGUI.addFolder('Dominos Circle');
-const recordsGUI = popCirclesGUI.addFolder('Records Circle')
-
-// Theater circle Intersection popup
-const theaterSphere = new popUpCircle(-32, 31, 7, 8);
-theaterSphere.createSphereRadius(scene);
-theaterGUI.add(theaterSphere.position, 'x', -50, 50, 1).onChange((value) => {
-    if (theaterSphere.circleObject) {
-        theaterSphere.circleObject.position.x = value;
-    }
-});
-theaterGUI.add(theaterSphere.position, 'z', -20, 20, 1).onChange((value) => {
-    if (theaterSphere.circleObject) {
-        theaterSphere.circleObject.position.z = value;
-    }
-});
-// Bills Cleaners
-const cleanersSphere = new popUpCircle(-35, 31, 32, 4);
-cleanersSphere.createSphereRadius(scene);
-cleanersGUI.add(cleanersSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
-    if (cleanersSphere.circleObject) {
-        cleanersSphere.circleObject.position.x = value;
-    }
-});
-cleanersGUI.add(cleanersSphere.position, 'z', -20, 60, 0.1).onChange((value) => {
-    if (cleanersSphere.circleObject) {
-        cleanersSphere.circleObject.position.z = value;
-    }
-});
-// Dominos place with THE FAN
-const dominosSphere = new popUpCircle(-35.2, 31, 57.8, 3);
-dominosSphere.createSphereRadius(scene);
-dominosGUI.add(dominosSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
-    if (dominosSphere.circleObject) {
-        dominosSphere.circleObject.position.x = value;
-    }
-});
-dominosGUI.add(dominosSphere.position, 'z', -20, 60, 0.1).onChange((value) => {
-    if (dominosSphere.circleObject) {
-        dominosSphere.circleObject.position.z = value;
-    }
-});
-// Records Shop, good music bruh
-const recordsSphere = new popUpCircle(-36, 31, 63, 2);
-recordsSphere.createSphereRadius(scene);
-recordsGUI.add(recordsSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
-    if (recordsSphere.circleObject) {
-        recordsSphere.circleObject.position.x = value;
-    }
-});
-recordsGUI.add(recordsSphere.position, 'z', -20, 100, 0.1).onChange((value) => {
-    if (recordsSphere.circleObject) {
-        recordsSphere.circleObject.position.z = value;
-    }
-});
-
-popCirclesGUI.open();
-
-const interactListener = function (event) {
-    if (isGUIMode || instructionsActive) return;
-
-    switch (event.code) {
-        case 'KeyF':
-            console.log('Interacted!');
-            if (theaterSphere.cameraInside) {
-                PopupManager.popUpActive = true;
-                PopupManager.generatePopup('Theater', informationArray[0]);
-                controls.unlock();
-                event.preventDefault();
-                break;
-            } else if (cleanersSphere.cameraInside) {
-                PopupManager.popUpActive = true;
-                PopupManager.generatePopup('Bills Cleaners', informationArray[1]);
-                controls.unlock();
-                event.preventDefault();
-                break;
-            } else if (dominosSphere.cameraInside) {
-                PopupManager.popUpActive = true;
-                PopupManager.generatePopup('Pool Dominos', informationArray[2]);
-                controls.unlock();
-                event.preventDefault();
-                break;
-            } else if (recordsSphere.cameraInside) {
-                PopupManager.popUpActive = true;
-                PopupManager.generatePopup('Record Shop', informationArray[3]);
-                controls.unlock();
-                event.preventDefault();
-                break;
-            } else {
-                break;
-            }
-    }
-}
-document.addEventListener('keydown', interactListener);
-
-{
-    const skyColor = 0xB1E1FF;
-    const groundColor = 0xB97A20;
-    const intensity = 2;
-    const light = new THREE.HemisphereLight(skyColor, groundColor, intensity);
-    scene.add(light);
-}
-
-{
-    const color = 0xFFFFFF;
-    const intensity = 5;
-    const light = new THREE.DirectionalLight(color, intensity);
-    light.position.set(5, 10, 2);
-    scene.add(light);
-    scene.add(light.target);
-
-    const lightFolder = gui.addFolder('Light');
-    lightFolder.addColor(new ColorGUIHelper(light, 'color'), 'value').name('color');
-    lightFolder.add(light, 'intensity', 0, 10, 0.01);
-    lightFolder.open();
-
-}
-
-// Add skybox and GUI Controls
-// I had claude help me figure out what was going wrong. 
-// For some reason even though my code is almost the exact same as his
-// Mine couldnt read the currentSkybox variable, and the min I pasted his into the
-// code it worked perfectly fine.
-let skySphereMesh;
-let skyboxDropdown;
-{
-    let loader = new THREE.TextureLoader();
-    skyBoxTextures = {
-        okcSunset: loader.load('../public/skybox/oklahoma_sunset.png'),
-        pinkSky: loader.load('../public/skybox/pink_sunset.png'),
-        blueSky: loader.load('../public/skybox/blue_sky.png'),
-        nightSky: loader.load('../public/skybox/night_sky.png')
-    }
-    const imagePath = '../public/skybox/oklahoma_sunset.png';
-    loader.load(imagePath, (panoramaTexture) => {
-        const skySphereGeometry = new THREE.SphereGeometry(500, 60, 60);
-
-        panoramaTexture.mapping = THREE.EquirectangularReflectionMapping;
-        panoramaTexture.colorSpace = THREE.SRGBColorSpace;
-        let skySphereMaterial = new THREE.MeshBasicMaterial({
-            map: panoramaTexture,
-        });
-
-        skySphereMaterial.side = THREE.BackSide;
-        skySphereMesh = new THREE.Mesh(skySphereGeometry, skySphereMaterial);
-        scene.add(skySphereMesh);
-
-        // Now that the skybox is loaded, set up the GUI control
-        setupSkyboxGUI();
-    });
-
-}
-
-// Function to add a new skybox from file
-function addSkyboxFromFile(file) {
-    const fileName = file.name.split('.')[0];
-    const customName = `custom_${fileName}_${Date.now()}`;
-
-    const reader = new FileReader();
-    reader.onload = function (e) {
-        const loader = new THREE.TextureLoader();
-        loader.load(e.target.result, (texture) => {
-            texture.mapping = THREE.EquirectangularReflectionMapping;
-            texture.colorSpace = THREE.SRGBColorSpace;
-
-            skyBoxTextures[customName] = texture;
-
-            updateSkyboxDropdown();
-
-            console.log(`Added custom skybox: ${customName}`);
-        });
     };
-    reader.readAsDataURL(file);
-}
 
-// Function to update the dropdown with new options
-function updateSkyboxDropdown() {
-    if (skyboxDropdown) {
-        const availableOptions = Object.keys(skyBoxTextures);
+    document.addEventListener('mousedown', (event) => {
+        if (event.target === canvas || !isGUIElement(event.target)) {
+            if (guiFocused) {
+                console.log('Clicked outside GUI - clearing focus state');
+                guiFocused = false;
+                resetMovementState();
+            }
+        }
+    });
 
-        skyboxDropdown.destroy();
+    const cullingLODManager = setupOptimizedRendering(scene, camera, renderer);
 
-        const skyBoxFolder = gui.folders.find(folder => folder._title === 'SkyBox');
-        skyboxDropdown = skyBoxFolder.add(skyboxController, 'currentSkybox', availableOptions)
+    // Add GUI controls for the culling system
+    const optimizationFolder = gui.addFolder('Performance Optimization');
+
+    // LOD distance controls
+    const lodControls = {
+        lodDistances: { high: 40, medium: 100, low: 150, cull: 200 },
+        enableCulling: true,
+        enableLOD: true
+    };
+
+    // Scene graph dump function
+    function dumpObject(obj, lines = [], isLast = true, prefix = '') {
+        const localPrefix = isLast ? '└─' : '├─';
+        lines.push(`${prefix}${prefix ? localPrefix : ''}${obj.name || '*no-name*'} [${obj.type}]`);
+        const newPrefix = prefix + (isLast ? '  ' : '│ ');
+        const lastNdx = obj.children.length - 1;
+        obj.children.forEach((child, ndx) => {
+            const isLast = ndx === lastNdx;
+            dumpObject(child, lines, isLast, newPrefix);
+        });
+        return lines;
+    }
+
+    function setupBoundaries() {
+        cameraBoundarySystem = setupCameraBoundaries(scene, camera, controls);
+
+        const boundaryFolder = gui.addFolder('Camera Boundaries');
+        boundaryFolder.add(cameraBoundarySystem.min, 'x', -150, 0).name('Min X');
+        boundaryFolder.add(cameraBoundarySystem.max, 'x', -100, 0).name('Max X');
+        boundaryFolder.add(cameraBoundarySystem.min, 'z', -150, 0).name('Min Z');
+        boundaryFolder.add(cameraBoundarySystem.max, 'z', 0, 150).name('Max Z');
+        // This is what claude created to setup the rotation GUI
+        // Add rotation controls using degrees (more user-friendly)
+        // The key insight here is that we're directly manipulating the object's properties
+        // and then calling updateRotation() whenever a value changes
+        boundaryFolder.add(cameraBoundarySystem.rotationParams, 'xDegrees', -180, 180, 1)
+            .name('X Rotation (°)')
+            .onChange((value) => {
+                // Convert degrees to radians and update the object
+                cameraBoundarySystem.rotationParams.x = (value * Math.PI) / 180;
+                cameraBoundarySystem.updateRotation();
+            });
+
+        boundaryFolder.add(cameraBoundarySystem.rotationParams, 'yDegrees', -180, 180, 1)
+            .name('Y Rotation (°)')
+            .onChange((value) => {
+                cameraBoundarySystem.rotationParams.y = (value * Math.PI) / 180;
+                cameraBoundarySystem.updateRotation();
+            });
+
+        boundaryFolder.add(cameraBoundarySystem.rotationParams, 'zDegrees', -180, 180, 1)
+            .name('Z Rotation (°)')
+            .onChange((value) => {
+                cameraBoundarySystem.rotationParams.z = (value * Math.PI) / 180;
+                cameraBoundarySystem.updateRotation();
+            });
+        boundaryFolder.open();
+    }
+
+    // Intersection pop Circles!
+    const popCirclesGUI = gui.addFolder('Popup Circles');
+    const theaterGUI = popCirclesGUI.addFolder('Theater Circle');
+    const cleanersGUI = popCirclesGUI.addFolder('Bills Circle');
+    const dominosGUI = popCirclesGUI.addFolder('Dominos Circle');
+    const recordsGUI = popCirclesGUI.addFolder('Records Circle')
+
+    // Theater circle Intersection popup
+    const theaterSphere = new popUpCircle(-32, 31, 7, 8);
+    theaterSphere.createSphereRadius(scene);
+    theaterGUI.add(theaterSphere.position, 'x', -50, 50, 1).onChange((value) => {
+        if (theaterSphere.circleObject) {
+            theaterSphere.circleObject.position.x = value;
+        }
+    });
+    theaterGUI.add(theaterSphere.position, 'z', -20, 20, 1).onChange((value) => {
+        if (theaterSphere.circleObject) {
+            theaterSphere.circleObject.position.z = value;
+        }
+    });
+    // Bills Cleaners
+    const cleanersSphere = new popUpCircle(-35, 31, 32, 4);
+    cleanersSphere.createSphereRadius(scene);
+    cleanersGUI.add(cleanersSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
+        if (cleanersSphere.circleObject) {
+            cleanersSphere.circleObject.position.x = value;
+        }
+    });
+    cleanersGUI.add(cleanersSphere.position, 'z', -20, 60, 0.1).onChange((value) => {
+        if (cleanersSphere.circleObject) {
+            cleanersSphere.circleObject.position.z = value;
+        }
+    });
+    // Dominos place with THE FAN
+    const dominosSphere = new popUpCircle(-35.2, 31, 57.8, 3);
+    dominosSphere.createSphereRadius(scene);
+    dominosGUI.add(dominosSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
+        if (dominosSphere.circleObject) {
+            dominosSphere.circleObject.position.x = value;
+        }
+    });
+    dominosGUI.add(dominosSphere.position, 'z', -20, 60, 0.1).onChange((value) => {
+        if (dominosSphere.circleObject) {
+            dominosSphere.circleObject.position.z = value;
+        }
+    });
+    // Records Shop, good music bruh
+    const recordsSphere = new popUpCircle(-36, 31, 63, 2);
+    recordsSphere.createSphereRadius(scene);
+    recordsGUI.add(recordsSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
+        if (recordsSphere.circleObject) {
+            recordsSphere.circleObject.position.x = value;
+        }
+    });
+    recordsGUI.add(recordsSphere.position, 'z', -20, 100, 0.1).onChange((value) => {
+        if (recordsSphere.circleObject) {
+            recordsSphere.circleObject.position.z = value;
+        }
+    });
+
+    popCirclesGUI.open();
+
+    const interactListener = function (event) {
+        if (isGUIMode || instructionsActive) return;
+
+        switch (event.code) {
+            case 'KeyF':
+                console.log('Interacted!');
+                if (theaterSphere.cameraInside) {
+                    PopupManager.popUpActive = true;
+                    PopupManager.generatePopup('Theater', informationArray[0]);
+                    controls.unlock();
+                    event.preventDefault();
+                    break;
+                } else if (cleanersSphere.cameraInside) {
+                    PopupManager.popUpActive = true;
+                    PopupManager.generatePopup('Bills Cleaners', informationArray[1]);
+                    controls.unlock();
+                    event.preventDefault();
+                    break;
+                } else if (dominosSphere.cameraInside) {
+                    PopupManager.popUpActive = true;
+                    PopupManager.generatePopup('Pool Dominos', informationArray[2]);
+                    controls.unlock();
+                    event.preventDefault();
+                    break;
+                } else if (recordsSphere.cameraInside) {
+                    PopupManager.popUpActive = true;
+                    PopupManager.generatePopup('Record Shop', informationArray[3]);
+                    controls.unlock();
+                    event.preventDefault();
+                    break;
+                } else {
+                    break;
+                }
+        }
+    }
+    document.addEventListener('keydown', interactListener);
+
+    {
+        const skyColor = 0xB1E1FF;
+        const groundColor = 0xB97A20;
+        const intensity = 2;
+        const light = new THREE.HemisphereLight(skyColor, groundColor, intensity);
+        scene.add(light);
+    }
+
+    {
+        const color = 0xFFFFFF;
+        const intensity = 5;
+        const light = new THREE.DirectionalLight(color, intensity);
+        light.position.set(5, 10, 2);
+        scene.add(light);
+        scene.add(light.target);
+
+        const lightFolder = gui.addFolder('Light');
+        lightFolder.addColor(new ColorGUIHelper(light, 'color'), 'value').name('color');
+        lightFolder.add(light, 'intensity', 0, 10, 0.01);
+        lightFolder.open();
+
+    }
+
+    // Add skybox and GUI Controls
+    // I had claude help me figure out what was going wrong. 
+    // For some reason even though my code is almost the exact same as his
+    // Mine couldnt read the currentSkybox variable, and the min I pasted his into the
+    // code it worked perfectly fine.
+    let skySphereMesh;
+    let skyboxDropdown;
+    {
+        let loader = new THREE.TextureLoader();
+        skyBoxTextures = {
+            okcSunset: loader.load('../public/skybox/oklahoma_sunset.png'),
+            pinkSky: loader.load('../public/skybox/pink_sunset.png'),
+            blueSky: loader.load('../public/skybox/blue_sky.png'),
+            nightSky: loader.load('../public/skybox/night_sky.png')
+        }
+        const imagePath = '../public/skybox/oklahoma_sunset.png';
+        loader.load(imagePath, (panoramaTexture) => {
+            const skySphereGeometry = new THREE.SphereGeometry(500, 60, 60);
+
+            panoramaTexture.mapping = THREE.EquirectangularReflectionMapping;
+            panoramaTexture.colorSpace = THREE.SRGBColorSpace;
+            let skySphereMaterial = new THREE.MeshBasicMaterial({
+                map: panoramaTexture,
+            });
+
+            skySphereMaterial.side = THREE.BackSide;
+            skySphereMesh = new THREE.Mesh(skySphereGeometry, skySphereMaterial);
+            scene.add(skySphereMesh);
+
+            // Now that the skybox is loaded, set up the GUI control
+            setupSkyboxGUI();
+        });
+
+    }
+
+    // Function to add a new skybox from file
+    function addSkyboxFromFile(file) {
+        const fileName = file.name.split('.')[0];
+        const customName = `custom_${fileName}_${Date.now()}`;
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const loader = new THREE.TextureLoader();
+            loader.load(e.target.result, (texture) => {
+                texture.mapping = THREE.EquirectangularReflectionMapping;
+                texture.colorSpace = THREE.SRGBColorSpace;
+
+                skyBoxTextures[customName] = texture;
+
+                updateSkyboxDropdown();
+
+                console.log(`Added custom skybox: ${customName}`);
+            });
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // Function to update the dropdown with new options
+    function updateSkyboxDropdown() {
+        if (skyboxDropdown) {
+            const availableOptions = Object.keys(skyBoxTextures);
+
+            skyboxDropdown.destroy();
+
+            const skyBoxFolder = gui.folders.find(folder => folder._title === 'SkyBox');
+            skyboxDropdown = skyBoxFolder.add(skyboxController, 'currentSkybox', availableOptions)
+                .name('Select Skybox');
+
+            skyboxDropdown.onChange(function (value) {
+                skyboxController.changeSkyBox(value);
+            });
+        }
+    }
+
+    // Create the skybox control object with a proper property that holds the current selection
+    var skyboxController = {
+        // This property will hold the current skybox selection
+        currentSkybox: 'okcSunset', // Set the initial value to match what we load by default
+
+        // This function handles changing the skybox
+        changeSkyBox: function (newTextureName) {
+            if (skySphereMesh && skyBoxTextures[newTextureName]) {
+                controls.disconnect();
+                resetMovementState();
+                setTimeout(() => {
+                    skySphereMesh.material.map = skyBoxTextures[newTextureName];
+                    skySphereMesh.material.needsUpdate = true;
+                }, 100);
+                controls.connect(canvas);
+                resetMovementState();
+                controls.object.position.copy(camera.position);
+                console.log('Skybox changed to:', newTextureName);
+            }
+        }
+    };
+
+    // Separate function to set up the GUI control after the skybox is loaded
+    function setupSkyboxGUI() {
+        const skyBoxFolder = gui.addFolder('SkyBox');
+
+        // Create the dropdown control
+        skyboxDropdown = skyBoxFolder.add(skyboxController, 'currentSkybox', ['okcSunset', 'blueSky', 'nightSky', 'pinkSky'])
             .name('Select Skybox');
 
+        // Set up the onChange listener to actually change the skybox
         skyboxDropdown.onChange(function (value) {
             skyboxController.changeSkyBox(value);
         });
-    }
-}
 
-// Create the skybox control object with a proper property that holds the current selection
-var skyboxController = {
-    // This property will hold the current skybox selection
-    currentSkybox: 'pinkSky', // Set the initial value to match what we load by default
+        const fileController = {
+            uploadSkybox: function () {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*,.hdr';
+                input.multiple = true;
 
-    // This function handles changing the skybox
-    changeSkyBox: function (newTextureName) {
-        if (skySphereMesh && skyBoxTextures[newTextureName]) {
-            controls.disconnect();
-            resetMovementState();
-            setTimeout(() => {
-                skySphereMesh.material.map = skyBoxTextures[newTextureName];
-                skySphereMesh.material.needsUpdate = true;
-            }, 100);
-            controls.connect(canvas);
-            resetMovementState();
-            controls.object.position.copy(camera.position);
-            console.log('Skybox changed to:', newTextureName);
-        }
-    }
-};
+                input.onchange = function (e) {
+                    const files = Array.from(e.target.files);
+                    files.forEach(file => {
+                        if (file.type.startsWith('image/')) {
+                            addSkyboxFromFile(file);
+                        }
+                    });
+                };
 
-// Separate function to set up the GUI control after the skybox is loaded
-function setupSkyboxGUI() {
-    const skyBoxFolder = gui.addFolder('SkyBox');
-
-    // Create the dropdown control
-    skyboxDropdown = skyBoxFolder.add(skyboxController, 'currentSkybox', ['okcSunset', 'blueSky', 'nightSky', 'pinkSky'])
-        .name('Select Skybox');
-
-    // Set up the onChange listener to actually change the skybox
-    skyboxDropdown.onChange(function (value) {
-        skyboxController.changeSkyBox(value);
-    });
-
-    const fileController = {
-        uploadSkybox: function () {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'image/*,.hdr';
-            input.multiple = true;
-
-            input.onchange = function (e) {
-                const files = Array.from(e.target.files);
-                files.forEach(file => {
-                    if (file.type.startsWith('image/')) {
-                        addSkyboxFromFile(file);
-                    }
-                });
-            };
-
-            input.click();
-        }
-    };
-
-    skyBoxFolder.add(fileController, 'uploadSkybox').name('Upload Skybox');
-
-    skyBoxFolder.open(); // Optional: opens the folder by default
-}
-
-
-// Fog setup
-scene.fog = new THREE.FogExp2(0xbe9fd4, 0.005);
-const fogFolder = gui.addFolder('Fog');
-const fogGUIHelper = new FogGUIHelper(scene.fog, camera);
-fogFolder.add(fogGUIHelper, 'density', 0, 0.05, 0.0001);
-fogFolder.addColor(fogGUIHelper, 'color');
-fogFolder.open();
-updateGUIVisibility();
-
-// GLTF Model loading with improved error handling
-{
-    const dracoLoader = new DRACOLoader();
-    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
-    dracoLoader.setDecoderConfig({ type: 'js' });
-    dracoLoader.preload();
-
-    const gltfLoader = new GLTFLoader();
-    gltfLoader.setDRACOLoader(dracoLoader);
-
-    gltfLoader.load(
-        baseURL + 'fairgrounds.glb',
-        (glb) => {
-            try {
-                loadingDiv.style.display = 'none';
-                const root = glb.scene;
-
-                const updateTextureQuality = setupOptimizedTextureSystem(root, scene, camera);
-                window.updateTextureQuality = updateTextureQuality;
-
-                window.cullingLODManager.injectIntoGLTFScene(root, lodControls);
-                scene.add(root);
-                console.log(dumpObject(root).join('\n'));
-
-                setupBoundaries();
-                blocker.style.display = '';
-                instructions.style.display = '';
-
-                dracoLoader.dispose();
-
-            } catch (error) {
-                console.error('Error processing loaded model:', error);
-                loadingDiv.textContent = 'Error processing model. Check console for details.';
-                loadingDiv.style.background = 'rgba(255,0,0,0.7)';
-
-                dracoLoader.dispose();
+                input.click();
             }
-        },
-        (xhr) => {
-            if (xhr.lengthComputable) {
-                const percentComplete = Math.round((xhr.loaded / xhr.total) * 100);
-                loadingDiv.textContent = `Loading model (${percentComplete}%)...`;
-                if (blocker.style.display === '' && instructions.style.display === '') {
-                    instructions.style.display = 'none';
-                    blocker.style.display = 'none';
-                }
-            }
-        },
-        (error) => {
-            loadingDiv.textContent = 'Error loading model. Check console for details.';
-            loadingDiv.style.background = 'rgba(255,0,0,0.7)';
-            console.error('Error loading model:', error);
+        };
 
-            dracoLoader.dispose();
-        }
-    );
+        skyBoxFolder.add(fileController, 'uploadSkybox').name('Upload Skybox');
 
-}
-
-function resizeRendererToDisplaySize(renderer) {
-    const canvas = renderer.domElement;
-    const width = canvas.clientWidth;
-    const height = canvas.clientHeight;
-    const needResize = canvas.width !== width || canvas.height !== height;
-    if (needResize) {
-        renderer.setSize(width, height, false);
+        skyBoxFolder.open(); // Optional: opens the folder by default
     }
-    return needResize;
-}
 
-// Animation/rendering variables
-let totalTime = 0.0;
-let previousTime = null;
 
-function render(time) {
-    try {
-        if (!controls.isLocked && !isGUIMode) {
-            velocity.set(0, 0, 0);
-            direction.set(0, 0, 0);
-            requestAnimationFrame(render);
-            return;
-        }
+    // Fog setup
+    scene.fog = new THREE.FogExp2(0xbe9fd4, 0.005);
+    const fogFolder = gui.addFolder('Fog');
+    const fogGUIHelper = new FogGUIHelper(scene.fog, camera);
+    fogFolder.add(fogGUIHelper, 'density', 0, 0.05, 0.0001);
+    fogFolder.addColor(fogGUIHelper, 'color');
+    fogFolder.open();
+    updateGUIVisibility();
 
-        // Update fog time for shaders
-        if (previousTime === null) {
-            previousTime = time;
-        }
-        const timeElapsed = (time - previousTime) * 0.001;
-        totalTime += timeElapsed;
-        previousTime = time;
-        cullingLODManager.updateFogTimeUniforms(totalTime);
+    // GLTF Model loading with improved error handling
+    {
+        const dracoLoader = new DRACOLoader();
+        dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+        dracoLoader.setDecoderConfig({ type: 'js' });
+        dracoLoader.preload();
 
-        const pointLockTime = performance.now();
+        const gltfLoader = new GLTFLoader();
+        gltfLoader.setDRACOLoader(dracoLoader);
 
-        if (controls.isLocked === true && !isGUIMode) {
-            theaterSphere.checkForIntersection(camera);
-            cleanersSphere.checkForIntersection(camera);
-            dominosSphere.checkForIntersection(camera);
-            recordsSphere.checkForIntersection(camera);
-            let theCameraInside = (theaterSphere.cameraInside || cleanersSphere.cameraInside || dominosSphere.cameraInside || recordsSphere.cameraInside) ? true : false;
-            if (theCameraInside) {
-                document.getElementById('interactionBlocker').style.display = 'block';
-                document.getElementById('interactDesc').style.display = 'flex';
-            } else if (document.getElementById('interactionBlocker').style.display === 'block' && !theCameraInside) {
-                document.getElementById('interactionBlocker').style.display = 'none';
-                document.getElementById('interactDesc').style.display = 'none';
-            }
-        }
-
-        if (controls.isLocked === true || isGUIMode && !PopupManager.popUpActive && !guiFocused) {
-            const delta = (time - prevTime) / 1000;
-
-            velocity.x -= velocity.x * 10.0 * delta;
-            velocity.z -= velocity.z * 10.0 * delta;
-
-            direction.z = Number(moveForward) - Number(moveBackward);
-            direction.x = Number(moveRight) - Number(moveLeft);
-            direction.normalize();
-
-            if (moveForward || moveBackward) velocity.z -= direction.z * 100.0 * delta;
-            if (moveLeft || moveRight) velocity.x -= direction.x * 100.0 * delta;
-
-            controls.moveRight(-velocity.x * delta);
-            controls.moveForward(-velocity.z * delta);
-        } else {
-            velocity.set(0, 0, 0);
-            direction.set(0, 0, 0);
-        }
-
-        if (window.cullingLODManager) {
-            window.cullingLODManager.update();
-        }
-
-        if (time % 3 === 0) {
-            if (window.updateTextureQuality) {
+        gltfLoader.load(
+            baseURL + 'fairgrounds.glb',
+            (glb) => {
                 try {
-                    window.updateTextureQuality();
+                    loadingDiv.style.display = 'none';
+                    const root = glb.scene;
+
+                    const updateTextureQuality = setupOptimizedTextureSystem(root, scene, camera);
+                    window.updateTextureQuality = updateTextureQuality;
+
+                    window.cullingLODManager.injectIntoGLTFScene(root, lodControls);
+                    scene.add(root);
+                    console.log(dumpObject(root).join('\n'));
+
+                    setupBoundaries();
+                    blocker.style.display = '';
+                    instructions.style.display = '';
+
+                    dracoLoader.dispose();
+
                 } catch (error) {
-                    console.warn('Error updating texture quality:', error);
+                    console.error('Error processing loaded model:', error);
+                    loadingDiv.textContent = 'Error processing model. Check console for details.';
+                    loadingDiv.style.background = 'rgba(255,0,0,0.7)';
+
+                    dracoLoader.dispose();
+                }
+            },
+            (xhr) => {
+                if (xhr.lengthComputable) {
+                    const percentComplete = Math.round((xhr.loaded / xhr.total) * 100);
+                    loadingDiv.textContent = `Loading model (${percentComplete}%)...`;
+                    if (blocker.style.display === '' && instructions.style.display === '') {
+                        instructions.style.display = 'none';
+                        blocker.style.display = 'none';
+                    }
+                }
+            },
+            (error) => {
+                loadingDiv.textContent = 'Error loading model. Check console for details.';
+                loadingDiv.style.background = 'rgba(255,0,0,0.7)';
+                console.error('Error loading model:', error);
+
+                dracoLoader.dispose();
+            }
+        );
+
+    }
+
+    function resizeRendererToDisplaySize(renderer) {
+        const canvas = renderer.domElement;
+        const width = canvas.clientWidth;
+        const height = canvas.clientHeight;
+        const needResize = canvas.width !== width || canvas.height !== height;
+        if (needResize) {
+            renderer.setSize(width, height, false);
+        }
+        return needResize;
+    }
+
+    // Animation/rendering variables
+    let totalTime = 0.0;
+    let previousTime = null;
+
+    function render(time) {
+        try {
+            if (!controls.isLocked && !isGUIMode) {
+                velocity.set(0, 0, 0);
+                direction.set(0, 0, 0);
+                requestAnimationFrame(render);
+                return;
+            }
+
+            // Update fog time for shaders
+            if (previousTime === null) {
+                previousTime = time;
+            }
+            const timeElapsed = (time - previousTime) * 0.001;
+            totalTime += timeElapsed;
+            previousTime = time;
+            cullingLODManager.updateFogTimeUniforms(totalTime);
+
+            const pointLockTime = performance.now();
+
+            if (controls.isLocked === true && !isGUIMode) {
+                theaterSphere.checkForIntersection(camera);
+                cleanersSphere.checkForIntersection(camera);
+                dominosSphere.checkForIntersection(camera);
+                recordsSphere.checkForIntersection(camera);
+                let theCameraInside = (theaterSphere.cameraInside || cleanersSphere.cameraInside || dominosSphere.cameraInside || recordsSphere.cameraInside) ? true : false;
+                if (theCameraInside) {
+                    document.getElementById('interactionBlocker').style.display = 'block';
+                    document.getElementById('interactDesc').style.display = 'flex';
+                } else if (document.getElementById('interactionBlocker').style.display === 'block' && !theCameraInside) {
+                    document.getElementById('interactionBlocker').style.display = 'none';
+                    document.getElementById('interactDesc').style.display = 'none';
                 }
             }
+
+            if (controls.isLocked === true || isGUIMode && !PopupManager.popUpActive && !guiFocused) {
+                const delta = (time - prevTime) / 1000;
+
+                velocity.x -= velocity.x * 10.0 * delta;
+                velocity.z -= velocity.z * 10.0 * delta;
+
+                direction.z = Number(moveForward) - Number(moveBackward);
+                direction.x = Number(moveRight) - Number(moveLeft);
+                direction.normalize();
+
+                if (moveForward || moveBackward) velocity.z -= direction.z * 100.0 * delta;
+                if (moveLeft || moveRight) velocity.x -= direction.x * 100.0 * delta;
+
+                controls.moveRight(-velocity.x * delta);
+                controls.moveForward(-velocity.z * delta);
+            } else {
+                velocity.set(0, 0, 0);
+                direction.set(0, 0, 0);
+            }
+
+            if (window.cullingLODManager) {
+                window.cullingLODManager.update();
+            }
+
+            if (time % 3 === 0) {
+                if (window.updateTextureQuality) {
+                    try {
+                        window.updateTextureQuality();
+                    } catch (error) {
+                        console.warn('Error updating texture quality:', error);
+                    }
+                }
+            }
+
+            prevTime = pointLockTime;
+
+            if (resizeRendererToDisplaySize(renderer)) {
+                const canvas = renderer.domElement;
+                camera.aspect = canvas.clientWidth / canvas.clientHeight;
+                camera.updateProjectionMatrix();
+            }
+
+            renderer.render(scene, camera);
+        } catch (error) {
+            console.error('Render loop error:', error);
         }
 
-        prevTime = pointLockTime;
-
-        if (resizeRendererToDisplaySize(renderer)) {
-            const canvas = renderer.domElement;
-            camera.aspect = canvas.clientWidth / canvas.clientHeight;
-            camera.updateProjectionMatrix();
-        }
-
-        renderer.render(scene, camera);
-    } catch (error) {
-        console.error('Render loop error:', error);
+        requestAnimationFrame(render);
     }
 
     requestAnimationFrame(render);
-}
-
-requestAnimationFrame(render);
 
 
-main();
+    main();
