@@ -1,0 +1,117 @@
+{
+  "version": "1.0",
+  "updated": "2025-01-06",
+  "locations": [
+    {
+      "id": "theater",
+      "title": "East Side Theater",
+      "description": "Welcome to the Fairgrounds neighborhood circa 1955. You can learn more here at the East Side Theater.",
+      "html": "<p><strong>The East Side Theater and its neighboring commercial development was the dream of George Richardson and J.W. Sanford, Sr.</strong></p><p>The Fairgrounds neighborhood had the approximate borders of NE 8th Street on the north to the Rock Island railroad tracks at the south.</p>",
+      "images": [
+        {
+          "src": "../public/images/eastside/East Side Theater 720-722 Bath.jpg",
+          "alt": "East Side Theater exterior view",
+          "caption": "The East Side Theater at 720-722 Bath Avenue"
+        },
+        {
+          "src": "../public/images/eastside/theater_interior.jpg",
+          "alt": "Theater interior",
+          "caption": "Interior view of the East Side Theater showing the main auditorium"
+        },
+        {
+          "src": "../public/images/eastside/theater_marquee.png",
+          "alt": "Theater marquee",
+          "caption": "The iconic marquee advertising current shows"
+        },
+        {
+          "src": "../public/images/eastside/aerial_view.tif",
+          "alt": "Aerial view of the neighborhood",
+          "caption": "Aerial photograph showing the density of the Fairgrounds neighborhood",
+          "type": "tiff"
+        }
+      ]
+    },
+    {
+      "id": "cleaners",
+      "title": "Bill's Cleaners",
+      "description": "Bill's Cleaners. Located at 718 Bath Avenue.",
+      "html": "<p><strong>Bill was known throughout the community not just for his cleaning services, but also for his prowess at the bowling alley!</strong></p>",
+      "images": [
+        {
+          "src": "../public/images/718/Black Dis 1954-05-01 Bills Cleaners.PNG",
+          "alt": "Black Dispatch Ad for Bill's Cleaners",
+          "caption": "Advertisement from the Black Dispatch, May 1, 1954"
+        },
+        {
+          "src": "../public/images/718/bills_storefront.jpg",
+          "alt": "Bill's Cleaners storefront",
+          "caption": "The storefront of Bill's Cleaners on a busy Saturday"
+        },
+        {
+          "src": "../public/images/718/bowling_scores.jpg",
+          "alt": "Bowling scores",
+          "caption": "Bill's bowling scores published in the Black Dispatch"
+        },
+        {
+          "src": "../public/images/718/interior_workspace.tif",
+          "alt": "Interior workspace",
+          "caption": "The back workroom at Bill's Cleaners",
+          "type": "tiff"
+        }
+      ]
+    },
+    {
+      "id": "dominos",
+      "title": "Domino Parlor",
+      "description": "This location, 714 Bath Ave, was a variety of domino parlors. Like pool halls, domino was a dominant form of leisure in the twentieth century, particularly for men.",
+      "html": "<p><strong>This room of the model was informed by actual interior photos of the building shown here.</strong></p>",
+      "images": [
+        {
+          "src": "../public/images/714/714 Interior 1.tif",
+          "alt": "Domino Parlor Interior - Main Room",
+          "caption": "Main gaming room of the Domino Parlor, circa 1950",
+          "type": "tiff"
+        },
+        {
+          "src": "../public/images/714/714_interior_2.jpg",
+          "alt": "Domino Parlor Interior - Tables",
+          "caption": "Close-up of the domino tables and seating arrangements"
+        },
+        {
+          "src": "../public/images/714/714_patrons.png",
+          "alt": "Parlor patrons",
+          "caption": "Regular patrons enjoying an afternoon game"
+        }
+      ]
+    },
+    {
+      "id": "records",
+      "title": "Melody Records",
+      "description": "Melody Records - Your source for the latest hits and classic tunes!",
+      "html": "<p><strong>Melody Records was the heart of the music scene in the Fairgrounds neighborhood, featuring the latest R&B, Jazz, and Gospel recordings.</strong></p>",
+      "images": [
+        {
+          "src": "../public/images/records/storefront.jpg",
+          "alt": "Melody Records storefront",
+          "caption": "Melody Records at 710B Bath Avenue"
+        },
+        {
+          "src": "../public/images/records/interior_view.png",
+          "alt": "Record shop interior",
+          "caption": "Rows of records awaiting music lovers"
+        },
+        {
+          "src": "../public/images/records/listening_booth.jpg",
+          "alt": "Listening booth",
+          "caption": "Private listening booths where customers could preview records"
+        },
+        {
+          "src": "../public/images/records/popular_albums.tif",
+          "alt": "Popular albums display",
+          "caption": "Display of the week's most popular albums",
+          "type": "tiff"
+        }
+      ]
+    }
+  ]
+}
