@@ -1145,6 +1145,532 @@ function main() {
 
     setupCarouselGUI(gui);
 
+    const PopupManager = {
+        overlay: document.getElementById('popup'),
+        container: document.querySelector('.popup-container'),
+        title: document.getElementById('popup-title'),
+        content: document.getElementById('popup-content'),
+        
+        popUpActive: false,
+        currentImageIndex: 0,
+        currentImages: [],
+        currentLocation: null,
+        autoplayInterval: null,
+        autoplayEnabled: false,
+        autoplayDuration: 3000,
+        showThumbnails: false,
+        transitionType: 'fade',
+        
+        imageManifest: null,
+        tiffCache: new Map(),
+        
+        async init() {
+            try {
+                const response = await fetch('../public/js/imageManifest.json');
+                this.imageManifest = await response.json();
+                console.log('Image manifest loaded:', this.imageManifest);
+                console.log(`Version: ${this.imageManifest.version}, Updated: ${this.imageManifest.updated}`);
+            } catch (error) {
+                console.error('Could not load image manifest:', error);
+                this.imageManifest = { locations: [] };
+            }
+        },
+        
+        getLocationData(locationId) {
+            if (this.imageManifest && this.imageManifest.locations) {
+                return this.imageManifest.locations.find(loc => loc.id === locationId);
+            }
+            return null;
+        },
+        
+        async convertTiffToCanvas(url) {
+            if (this.tiffCache.has(url)) {
+                return this.tiffCache.get(url);
+            }
+            
+            try {
+                const response = await fetch(url);
+                const arrayBuffer = await response.arrayBuffer();
+                
+                const ifds = UTIF.decode(arrayBuffer);
+                if (ifds.length === 0) throw new Error('No images found in TIFF');
+                
+                const ifd = ifds[0];
+                UTIF.decodeImage(arrayBuffer, ifd);
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = ifd.width;
+                canvas.height = ifd.height;
+                const ctx = canvas.getContext('2d');
+                
+                const rgba = UTIF.toRGBA8(ifd);
+                
+                const imageData = new ImageData(new Uint8ClampedArray(rgba.buffer), ifd.width, ifd.height);
+                ctx.putImageData(imageData, 0, 0);
+                
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+                
+                this.tiffCache.set(url, dataUrl);
+                
+                return dataUrl;
+            } catch (error) {
+                console.error('Error converting TIFF:', error);
+                return '../public/images/placeholder.png';
+            }
+        },
+        
+        async processImageSource(imageData) {
+            if (imageData.type === 'tiff' || imageData.src.toLowerCase().endsWith('.tif') || imageData.src.toLowerCase().endsWith('.tiff')) {
+                return await this.convertTiffToCanvas(imageData.src);
+            }
+            return imageData.src;
+        },
+        
+        show: function (title = 'Popup', content = '') {
+            this.title.textContent = title;
+            this.content.innerHTML = content;
+            
+            this.overlay.style.display = 'block';
+            setTimeout(() => {
+                this.overlay.classList.add('show');
+                this.container.classList.add('show');
+            }, 10);
+            
+            document.body.style.overflow = 'hidden';
+            document.body.style.cursor = 'default';
+            
+            this.initializeCarousel();
+            
+            if (this.autoplayEnabled && this.currentImages.length > 1) {
+                this.startAutoplay();
+            }
+        },
+        
+        hide: function () {
+            this.overlay.classList.remove('show');
+            this.container.classList.remove('show');
+            
+            setTimeout(() => {
+                this.overlay.style.display = 'none';
+            }, 300);
+            
+            document.body.style.overflow = 'auto';
+            document.body.style.cursor = 'none';
+            
+            this.stopAutoplay();
+            
+            this.currentImageIndex = 0;
+            this.currentImages = [];
+            this.currentLocation = null;
+            this.removeCarouselListeners();
+        },
+        
+        initializeCarousel: function() {
+            const carouselContainer = this.content.querySelector('.carousel-container');
+            if (!carouselContainer) return;
+            
+            carouselContainer.classList.toggle('slide-transition', this.transitionType === 'slide');
+            
+            this.currentImages = Array.from(carouselContainer.querySelectorAll('.carousel-image'));
+            if (this.currentImages.length <= 1) return;
+            
+            const prevBtn = carouselContainer.querySelector('.carousel-nav.prev');
+            const nextBtn = carouselContainer.querySelector('.carousel-nav.next');
+            
+            if (prevBtn && nextBtn) {
+                this.prevBtnHandler = () => this.previousImage();
+                this.nextBtnHandler = () => this.nextImage();
+                
+                prevBtn.addEventListener('click', this.prevBtnHandler);
+                nextBtn.addEventListener('click', this.nextBtnHandler);
+            }
+            
+            const indicators = carouselContainer.querySelectorAll('.carousel-indicator');
+            indicators.forEach((indicator, index) => {
+                indicator.addEventListener('click', () => this.showImage(index));
+            });
+            
+            this.keyboardHandler = (e) => {
+                if (e.key === 'ArrowLeft') this.previousImage();
+                if (e.key === 'ArrowRight') this.nextImage();
+                if (e.key === 'Escape') this.hide();
+            };
+            document.addEventListener('keydown', this.keyboardHandler);
+            
+            if (this.showThumbnails) {
+                this.setupThumbnails();
+            }
+            
+            this.loadTiffImages();
+            
+            this.showImage(0);
+        },
+        
+        async loadTiffImages() {
+            if (!this.currentLocation || !window.UTIF) return;
+            
+            const locationData = this.getLocationData(this.currentLocation);
+            if (!locationData || !locationData.images) return;
+            
+            for (let i = 0; i < locationData.images.length; i++) {
+                const imageData = locationData.images[i];
+                const imgElement = this.currentImages[i];
+                
+                if (!imgElement) continue;
+                
+                if (imageData.type === 'tiff' || imageData.src.toLowerCase().match(/\.tiff?$/)) {
+                    imgElement.style.opacity = '0.5';
+                    
+                    try {
+                        const processedSrc = await this.processImageSource(imageData);
+                        imgElement.src = processedSrc;
+                        imgElement.style.opacity = '';
+                    } catch (error) {
+                        console.error('Error loading TIFF:', error);
+                        imgElement.src = '../public/images/placeholder.png';
+                    }
+                }
+            }
+        },
+        
+        setupThumbnails: function() {
+            const carouselContainer = this.content.querySelector('.carousel-container');
+            if (!carouselContainer) return;
+            
+            const thumbnailContainer = carouselContainer.querySelector('.carousel-thumbnails');
+            if (thumbnailContainer) {
+                thumbnailContainer.classList.toggle('active', this.showThumbnails);
+                
+                const thumbnails = thumbnailContainer.querySelectorAll('.carousel-thumbnail');
+                thumbnails.forEach((thumb, index) => {
+                    thumb.addEventListener('click', () => this.showImage(index));
+                });
+            }
+        },
+        
+        startAutoplay: function() {
+            if (!this.autoplayEnabled || this.currentImages.length <= 1) return;
+            
+            this.stopAutoplay();
+            
+            const progressBar = this.content.querySelector('.carousel-progress');
+            if (progressBar) {
+                progressBar.style.transitionDuration = `${this.autoplayDuration}ms`;
+                progressBar.classList.add('active');
+            }
+            
+            this.autoplayInterval = setInterval(() => {
+                if (this.currentImageIndex < this.currentImages.length - 1) {
+                    this.nextImage();
+                } else {
+                    this.showImage(0);
+                }
+            }, this.autoplayDuration);
+        },
+        
+        stopAutoplay: function() {
+            if (this.autoplayInterval) {
+                clearInterval(this.autoplayInterval);
+                this.autoplayInterval = null;
+            }
+            
+            const progressBar = this.content.querySelector('.carousel-progress');
+            if (progressBar) {
+                progressBar.classList.remove('active');
+                progressBar.style.transitionDuration = '0ms';
+            }
+        },
+        
+        removeCarouselListeners: function() {
+            if (this.keyboardHandler) {
+                document.removeEventListener('keydown', this.keyboardHandler);
+                this.keyboardHandler = null;
+            }
+            
+            const carouselContainer = this.content.querySelector('.carousel-container');
+            if (carouselContainer) {
+                const prevBtn = carouselContainer.querySelector('.carousel-nav.prev');
+                const nextBtn = carouselContainer.querySelector('.carousel-nav.next');
+                
+                if (prevBtn && this.prevBtnHandler) {
+                    prevBtn.removeEventListener('click', this.prevBtnHandler);
+                }
+                if (nextBtn && this.nextBtnHandler) {
+                    nextBtn.removeEventListener('click', this.nextBtnHandler);
+                }
+            }
+        },
+        
+        showImage: function(index) {
+            if (!this.currentImages.length) return;
+            
+            if (this.autoplayEnabled) {
+                this.startAutoplay();
+            }
+            
+            if (this.transitionType === 'slide') {
+                this.currentImages.forEach((img, i) => {
+                    img.classList.remove('active', 'prev');
+                    if (i < index) img.classList.add('prev');
+                    else if (i === index) img.classList.add('active');
+                });
+            } else {
+                this.currentImages.forEach((img, i) => {
+                    img.classList.toggle('active', i === index);
+                });
+            }
+            
+            const indicators = this.content.querySelectorAll('.carousel-indicator');
+            indicators.forEach((indicator, i) => {
+                indicator.classList.toggle('active', i === index);
+            });
+            
+            const thumbnails = this.content.querySelectorAll('.carousel-thumbnail');
+            thumbnails.forEach((thumb, i) => {
+                thumb.classList.toggle('active', i === index);
+            });
+            
+            const captionElement = this.content.querySelector('.carousel-caption');
+            if (captionElement) {
+                const activeImage = this.currentImages[index];
+                const caption = activeImage.dataset.caption || '';
+                captionElement.textContent = caption;
+            }
+            
+            const prevBtn = this.content.querySelector('.carousel-nav.prev');
+            const nextBtn = this.content.querySelector('.carousel-nav.next');
+            
+            if (prevBtn) prevBtn.disabled = index === 0;
+            if (nextBtn) nextBtn.disabled = index === this.currentImages.length - 1;
+            
+            this.currentImageIndex = index;
+        },
+        
+        nextImage: function() {
+            if (this.currentImageIndex < this.currentImages.length - 1) {
+                this.showImage(this.currentImageIndex + 1);
+            }
+        },
+        
+        previousImage: function() {
+            if (this.currentImageIndex > 0) {
+                this.showImage(this.currentImageIndex - 1);
+            }
+        },
+        
+        async generatePopupFromLocation(locationId) {
+            const locationData = this.getLocationData(locationId);
+            
+            if (!locationData) {
+                console.warn(`No data found for location: ${locationId}`);
+                this.show('Information', '<p>No information available for this location.</p>');
+                return;
+            }
+            
+            this.currentLocation = locationId;
+            let content = '';
+            
+            if (locationData.description) {
+                content += `<p>${locationData.description}</p>`;
+            }
+            
+            if (locationData.images && locationData.images.length > 0) {
+                content += '<div class="carousel-container">';
+                
+                content += '<div class="carousel-loading">Loading images...</div>';
+                
+                content += '<div class="carousel-image-wrapper">';
+                
+                if (locationData.images.length > 1) {
+                    content += '<button class="carousel-nav prev" aria-label="Previous image"></button>';
+                    content += '<button class="carousel-nav next" aria-label="Next image"></button>';
+                }
+                
+                for (let i = 0; i < locationData.images.length; i++) {
+                    const img = locationData.images[i];
+                    const isActive = i === 0 ? 'active' : '';
+                    
+                    const isTiff = img.type === 'tiff' || img.src.toLowerCase().match(/\.tiff?$/);
+                    const initialSrc = isTiff ? '../public/images/placeholder.png' : img.src;
+                    
+                    content += `<img class="carousel-image ${isActive}" 
+                        src="${initialSrc}" 
+                        alt="${img.alt || ''}"
+                        data-caption="${img.caption || ''}"
+                        data-index="${i}"
+                        onerror="this.src='../public/images/placeholder.png'"
+                        onload="this.parentElement.parentElement.querySelector('.carousel-loading').style.display='none'">`;
+                }
+                
+                content += '</div>';
+                
+                if (locationData.images.length > 1) {
+                    content += '<div class="carousel-indicators">';
+                    for (let i = 0; i < locationData.images.length; i++) {
+                        const isActive = i === 0 ? 'active' : '';
+                        content += `<span class="carousel-indicator ${isActive}" data-index="${i}"></span>`;
+                    }
+                    content += '</div>';
+                    
+                    content += '<div class="carousel-progress"></div>';
+                }
+                
+                if (locationData.images.length > 1) {
+                    content += '<div class="carousel-thumbnails">';
+                    for (let i = 0; i < locationData.images.length; i++) {
+                        const img = locationData.images[i];
+                        const isActive = i === 0 ? 'active' : '';
+                        content += `<div class="carousel-thumbnail ${isActive}" data-index="${i}">
+                            <img src="${img.src}" alt="${img.alt || ''}">
+                        </div>`;
+                    }
+                    content += '</div>';
+                }
+                
+                content += '<div class="carousel-caption"></div>';
+                
+                content += '</div>';
+            }
+            
+            if (locationData.html) {
+                content += locationData.html;
+            }
+            
+            this.show(locationData.title, content);
+        }
+    };
+
+    // Initialize popup manager
+    PopupManager.init().catch(console.error);
+
+    // GUI Controls for the carousel (place this INSIDE main() after PopupManager)
+    function setupCarouselGUI(gui) {
+        const carouselFolder = gui.addFolder('Carousel Controls');
+        
+        const carouselSettings = {
+            autoplay: false,
+            autoplayDuration: 3,
+            showThumbnails: false,
+            transitionType: 'fade',
+            
+            toggleAutoplay: function() {
+                PopupManager.autoplayEnabled = this.autoplay;
+                if (PopupManager.popUpActive) {
+                    if (this.autoplay) {
+                        PopupManager.startAutoplay();
+                    } else {
+                        PopupManager.stopAutoplay();
+                    }
+                }
+            },
+            
+            updateAutoplaySpeed: function() {
+                PopupManager.autoplayDuration = this.autoplayDuration * 1000;
+                if (PopupManager.autoplayEnabled && PopupManager.popUpActive) {
+                    PopupManager.startAutoplay();
+                }
+            },
+            
+            toggleThumbnails: function() {
+                PopupManager.showThumbnails = this.showThumbnails;
+                if (PopupManager.popUpActive) {
+                    PopupManager.setupThumbnails();
+                }
+            },
+            
+            updateTransition: function() {
+                PopupManager.transitionType = this.transitionType;
+                const container = document.querySelector('.carousel-container');
+                if (container) {
+                    container.classList.toggle('slide-transition', this.transitionType === 'slide');
+                }
+            },
+            
+            reloadManifest: async function() {
+                await PopupManager.init();
+                console.log('Image manifest reloaded');
+                alert('Image manifest reloaded successfully!');
+            },
+            
+            checkTiffSupport: function() {
+                if (window.UTIF) {
+                    console.log('✅ TIFF support is loaded');
+                    alert('TIFF support is available!');
+                } else {
+                    console.log('❌ TIFF support not found');
+                    alert('TIFF support not loaded. Please add UTIF.js script to your HTML.');
+                }
+            }
+        };
+        
+        carouselFolder.add(carouselSettings, 'autoplay')
+            .name('Enable Autoplay')
+            .onChange(() => carouselSettings.toggleAutoplay());
+        
+        carouselFolder.add(carouselSettings, 'autoplayDuration', 1, 10, 0.5)
+            .name('Autoplay Speed (sec)')
+            .onChange(() => carouselSettings.updateAutoplaySpeed());
+        
+        carouselFolder.add(carouselSettings, 'showThumbnails')
+            .name('Show Thumbnails')
+            .onChange(() => carouselSettings.toggleThumbnails());
+        
+        carouselFolder.add(carouselSettings, 'transitionType', ['fade', 'slide'])
+            .name('Transition Type')
+            .onChange(() => carouselSettings.updateTransition());
+        
+        carouselFolder.add(carouselSettings, 'reloadManifest').name('Reload Images');
+        carouselFolder.add(carouselSettings, 'checkTiffSupport').name('Check TIFF Support');
+        
+        carouselFolder.open();
+    }
+
+// Updated interact listener (place this INSIDE main() after all the sphere creations)
+const interactListener = function (event) {
+    if (isGUIMode || instructionsActive) return;
+    
+    switch (event.code) {
+        case 'KeyF':
+            console.log('Interacted!');
+            if (theaterSphere.cameraInside) {
+                PopupManager.popUpActive = true;
+                PopupManager.generatePopupFromLocation('theater');
+                controls.unlock();
+                event.preventDefault();
+                break;
+            } else if (cleanersSphere.cameraInside) {
+                PopupManager.popUpActive = true;
+                PopupManager.generatePopupFromLocation('cleaners');
+                controls.unlock();
+                event.preventDefault();
+                break;
+            } else if (dominosSphere.cameraInside) {
+                PopupManager.popUpActive = true;
+                PopupManager.generatePopupFromLocation('dominos');
+                controls.unlock();
+                event.preventDefault();
+                break;
+            } else if (recordsSphere.cameraInside) {
+                PopupManager.popUpActive = true;
+                PopupManager.generatePopupFromLocation('records');
+                controls.unlock();
+                event.preventDefault();
+                break;
+            }
+    }
+};
+
+// Add the event listener for interactions
+document.addEventListener('keydown', interactListener);
+
+// Close popup function (if not already defined)
+function closePopup() {
+    setTimeout(() => {
+        PopupManager.hide();
+    }, 300);
+    PopupManager.popUpActive = false;
+}
+
     function setupOptimizedRendering(scene, camera, renderer) {
         // Create the culling/LOD manager
         const cullingLODManager = new AdvancedCullingLODManager(camera, renderer);
@@ -1221,8 +1747,8 @@ function main() {
     controls.addEventListener('lock', function () {
         console.log('controls have been locked');
     })
-
-    scene.add(controls.object);
+    //Really can't remember. Maybe xDarthx Knows. Commenting the line below because itis flagging an error and I'm not sure it is necessary.
+        //scene.add(controls.object);
 
 
     // This is to toggle the GUI mode so that you can use your mouse to mess with the GUI
@@ -1370,13 +1896,13 @@ function main() {
         switch (event.code) {
             case isGUIMode && 'KeyQ':
                 cameraEuler.setFromQuaternion(camera.quaternion);
-                cameraEuler.y -= -0.1 * 0.5 * 2;
+                cameraEuler.y -= -0.01 * 0.5 * 2;
                 camera.quaternion.setFromEuler(cameraEuler);
                 break;
 
             case isGUIMode && 'KeyE':
                 cameraEuler.setFromQuaternion(camera.quaternion);
-                cameraEuler.y -= 0.1 * 0.5 * 2;
+                cameraEuler.y -= 0.01 * 0.5 * 2;
                 camera.quaternion.setFromEuler(cameraEuler);
                 break;
         }
@@ -1553,42 +2079,6 @@ function main() {
     });
 
     popCirclesGUI.open();
-
-    // Updated interact listener using the new system
-const interactListener = function (event) {
-    if (isGUIMode || instructionsActive) return;
-    
-    switch (event.code) {
-        case 'KeyF':
-            console.log('Interacted!');
-            if (theaterSphere.cameraInside) {
-                PopupManager.popUpActive = true;
-                PopupManager.generatePopupFromLocation('theater');
-                controls.unlock();
-                event.preventDefault();
-                break;
-            } else if (cleanersSphere.cameraInside) {
-                PopupManager.popUpActive = true;
-                PopupManager.generatePopupFromLocation('cleaners');
-                controls.unlock();
-                event.preventDefault();
-                break;
-            } else if (dominosSphere.cameraInside) {
-                PopupManager.popUpActive = true;
-                PopupManager.generatePopupFromLocation('dominos');
-                controls.unlock();
-                event.preventDefault();
-                break;
-            } else if (recordsSphere.cameraInside) {
-                PopupManager.popUpActive = true;
-                PopupManager.generatePopupFromLocation('records');
-                controls.unlock();
-                event.preventDefault();
-                break;
-            }
-    }
-}
-    document.addEventListener('keydown', interactListener);
 
     {
         const skyColor = 0xB1E1FF;
