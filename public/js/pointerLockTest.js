@@ -1044,57 +1044,6 @@ function setupCameraBoundaries(scene, camera, controls) {
     return boundary;
 }
 
-const informationArray = [
-    // This is the sample for the popUps, you can use these however you want. 
-    // I am hoping maybe in the future I could setup like a gallery type popup
-    // that has multiple images that you can scroll through or maybe
-    // a fully custom popup that can be designed anyway you want 
-    // text: '',
-    // image: {
-    //     src: '',
-    //     alt: '',
-    //     caption: ''
-    // },
-    // html: 
-    {
-        text: 'Welcome to the Fairgrounds neighborhood circa 1955. You can learn mor here at the East Side Theater.',
-        image: {
-            src: '../public/images/eastside/East Side Theater 720-722 Bath.jpg',
-            alt: '700 block of N Bath at bottom',
-            caption: 'The Fairgrounds neighborhood had the approximate borders of NE 8th Street on the north to the Rock Island railroad tracks at the south, and Stonewall or Lottie Avenues to the West and Eastern Avenue (now MLK) to the east, and was bisected by active MKT railroad tracks running southwest-northeast. Today’s Douglass High School (900 N MLK) was the site of the first State Fairgrounds. The area was near the path of the unchannelled North Canadian River and experienced flooding. The Fairgrounds was an incredibly dense, predominately Black neighborhood. Because of redlining and other systemically racist house practices, the majority of African American residents of Oklahoma City primarily lived in a few specific neighborhoods.'
-        },
-        button:  '<button>button</button>',
-        html: '<p><strong>The Magnificent East Side Theater and its neighboring commercial development was the dream of George Richardson and J.W. Sanford, Sr.</strong></p>'
-    },
-    {
-        text: 'Bill\'s Cleaners. Located at 718 Bath Avenue.',
-        image: {
-            src: '../public/images/718/Black Dis 1954-05-01 Bills Cleaners.PNG',
-            alt: 'Black Dispatch Ad for Bill\'s Cleaners',
-            caption: 'Bill would often publish his bowling scores in the Black Dispatch'
-        },
-        html: '<p><strong>Heard he was good at bowling!</strong></p>'
-    },
-    {
-        text: 'This location, 714 Bath Ave, was a variety of domino parlors. Like pool halls, domino was a dominant form of leisure in the twentieth century, particularly for men.',
-        image: {
-            src: '../public/images/714/714 Interior 1.tif',
-            alt: 'Image of 714 Bath Avenue Interior Circa 1950',
-            caption: "Domino's Billiard Hall - 714 Bath Avenue - ~1950"
-        },
-        html: '<p><strong>This room of the model was informed by actual interior photos of the building shown here.</strong></p>'
-    },
-    {
-        text: 'Records!',
-        image: {
-            src: 'https://picsum.photos/350/200',
-            alt: 'Filler Image',
-            caption: 'Cool images'
-        },
-        html: '<p><strong>Lots of goooood music here</strong></p>'
-    }
-]
-
 function main() {
     setupCustomFogShaders();
 
