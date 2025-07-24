@@ -791,6 +791,10 @@ const PopupManager = {
             }
         }
 
+        if (config.button){
+            content += config.button;
+        }
+
         if (config.html) {
             content += config.html;
         }
@@ -1059,7 +1063,8 @@ const informationArray = [
             alt: '700 block of N Bath at bottom',
             caption: 'The Fairgrounds neighborhood had the approximate borders of NE 8th Street on the north to the Rock Island railroad tracks at the south, and Stonewall or Lottie Avenues to the West and Eastern Avenue (now MLK) to the east, and was bisected by active MKT railroad tracks running southwest-northeast. Today’s Douglass High School (900 N MLK) was the site of the first State Fairgrounds. The area was near the path of the unchannelled North Canadian River and experienced flooding. The Fairgrounds was an incredibly dense, predominately Black neighborhood. Because of redlining and other systemically racist house practices, the majority of African American residents of Oklahoma City primarily lived in a few specific neighborhoods.'
         },
-        html: '<p><strong>The East Side Theater and its neighboring commercial development was the dream of George Richardson and J.W. Sanford, Sr.</strong></p>'
+        button:  '<button>button</button>',
+        html: '<p><strong>The Magnificent East Side Theater and its neighboring commercial development was the dream of George Richardson and J.W. Sanford, Sr.</strong></p>'
     },
     {
         text: 'Bill\'s Cleaners. Located at 718 Bath Avenue.',
