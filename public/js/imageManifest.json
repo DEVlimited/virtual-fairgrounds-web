@@ -6,7 +6,7 @@
       "id": "theater",
       "title": "East Side Theater",
       "description": "Welcome to the Fairgrounds neighborhood circa 1955. You can learn more here at the East Side Theater.",
-      "html": "<p><strong>The East Side Theater and its neighboring commercial development was the dream of George Richardson and J.W. Sanford, Sr.</strong></p><p>The Fairgrounds neighborhood had the approximate borders of NE 8th Street on the north to the Rock Island railroad tracks at the south.</p><br><button>button</button>",
+      "html": "<p><strong>The East Side Theater and its neighboring commercial development was the dream of George Richardson and J.W. Sanford, Sr.</strong></p><p>The Fairgrounds neighborhood had the approximate borders of NE 8th Street on the north to the Rock Island railroad tracks at the south.</p>",
       "images": [
         {
           "src": "../public/images/eastside/East Side Theater 720-722 Bath.jpg",
@@ -160,6 +160,16 @@
           "speaker": "Sandra Richards"
         }
       ]
+    },
+    {
+      "id": "northEnd",
+      "title": "placeholder",
+      "description": "Ooga Booga"
+    },
+    {
+      "id": "southEnd",
+      "title": "placeholder",
+      "description": "Ooga Booga"
     }
   ]
 }
