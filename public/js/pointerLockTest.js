@@ -721,19 +721,35 @@ class popUpCircle {
     }
 
     checkForIntersection(camera) {
+    // Add null check at the beginning
+    if (!this.circleObject) {
+        // Still check distance even without visual object
         const cameraPosition = new THREE.Vector3();
         camera.getWorldPosition(cameraPosition);
-
-        const sphereCenter = this.circleObject.position.clone();
-
-        const distance = cameraPosition.distanceTo(sphereCenter);
-
+        
+        const distance = cameraPosition.distanceTo(this.position);
+        
         if (distance < this.geometryRadius) {
             this.cameraInside = true;
-        } else if (distance >= this.geometryRadius) {
+        } else {
             this.cameraInside = false;
         }
+        return;
     }
+    // If the circleObject exists, check for intersection
+    const cameraPosition = new THREE.Vector3();
+    camera.getWorldPosition(cameraPosition);
+
+    const sphereCenter = this.circleObject.position.clone();
+
+    const distance = cameraPosition.distanceTo(sphereCenter);
+
+    if (distance < this.geometryRadius) {
+        this.cameraInside = true;
+    } else if (distance >= this.geometryRadius) {
+        this.cameraInside = false;
+    }
+}
 }
 
 //This is the barrier box object
