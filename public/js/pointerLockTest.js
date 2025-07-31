@@ -1027,6 +1027,45 @@ function main() {
     const scene = new THREE.Scene();
     const gui = new GUI();
 
+    
+    const debugFolder = gui.addFolder('Debug Visuals');
+    const debugSettings = {
+        showBoundaryBox: false,
+        showPopupCircles: false,
+        
+        toggleBoundaryBox: function() {
+            if (this.showBoundaryBox) {
+                cameraBoundarySystem.createVisualization(scene);
+            } else {
+                if (cameraBoundarySystem.boundaryBox) {
+                    scene.remove(cameraBoundarySystem.boundaryBox);
+                }
+            }
+        },
+        
+        togglePopupCircles: function() {
+            if (this.showPopupCircles) {
+                theaterSphere.createSphereRadius(scene);
+                cleanersSphere.createSphereRadius(scene);
+                dominosSphere.createSphereRadius(scene);
+                recordsSphere.createSphereRadius(scene);
+            } else {
+                scene.remove(theaterSphere.circleObject);
+                scene.remove(cleanersSphere.circleObject);
+                scene.remove(dominosSphere.circleObject);
+                scene.remove(recordsSphere.circleObject);
+            }
+        }
+    };
+
+    debugFolder.add(debugSettings, 'showBoundaryBox')
+        .name('Show Boundary Box')
+        .onChange(() => debugSettings.toggleBoundaryBox());
+        
+    debugFolder.add(debugSettings, 'showPopupCircles')
+        .name('Show Popup Circles')
+        .onChange(() => debugSettings.togglePopupCircles());
+
     setupCarouselGUI(gui);
 
     const PopupManager = {
@@ -1624,7 +1663,7 @@ function main() {
         carouselFolder.add(carouselSettings, 'reloadManifest').name('Reload Images');
         carouselFolder.add(carouselSettings, 'checkTiffSupport').name('Check TIFF Support');
         
-        carouselFolder.open();
+        //carouselFolder.open();
     }
 
     // Updated interact listener (place this INSIDE main() after all the sphere creations)
@@ -1709,7 +1748,7 @@ function main() {
     cameraFolder.add(minMaxGUIHelper, 'min', 0.1, 50, 0.1).name('near');
     cameraFolder.add(minMaxGUIHelper, 'max', 0.1, 650, 0.1).name('far');
     cameraFolder.add(cameraResetButton, 'reset_position');
-    cameraFolder.open();
+    //cameraFolder.open();
 
     // Pointer lock controls
     const controls = new PointerLockControls(camera, canvas);
@@ -2029,7 +2068,7 @@ function main() {
                 cameraBoundarySystem.rotationParams.z = (value * Math.PI) / 180;
                 cameraBoundarySystem.updateRotation();
             });
-        boundaryFolder.open();
+       // boundaryFolder.open();
     }
 
     // Intersection pop Circles!
@@ -2043,7 +2082,7 @@ function main() {
 
     // Theater circle Intersection popup
     const theaterSphere = new popUpCircle(-32, 31, 7, 8);
-    theaterSphere.createSphereRadius(scene);
+    //theaterSphere.createSphereRadius(scene);
     theaterGUI.add(theaterSphere.position, 'x', -50, 50, 1).onChange((value) => {
         if (theaterSphere.circleObject) {
             theaterSphere.circleObject.position.x = value;
@@ -2056,7 +2095,7 @@ function main() {
     });
     // Bills Cleaners
     const cleanersSphere = new popUpCircle(-35, 31, 32, 4);
-    cleanersSphere.createSphereRadius(scene);
+    //cleanersSphere.createSphereRadius(scene);
     cleanersGUI.add(cleanersSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
         if (cleanersSphere.circleObject) {
             cleanersSphere.circleObject.position.x = value;
@@ -2069,7 +2108,7 @@ function main() {
     });
     // Dominos place with THE FAN
     const dominosSphere = new popUpCircle(-35.2, 31, 57.8, 3);
-    dominosSphere.createSphereRadius(scene);
+    //dominosSphere.createSphereRadius(scene);
     dominosGUI.add(dominosSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
         if (dominosSphere.circleObject) {
             dominosSphere.circleObject.position.x = value;
@@ -2082,7 +2121,7 @@ function main() {
     });
     // Records Shop, good music bruh
     const recordsSphere = new popUpCircle(-36, 31, 63, 2);
-    recordsSphere.createSphereRadius(scene);
+    //recordsSphere.createSphereRadius(scene);
     recordsGUI.add(recordsSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
         if (recordsSphere.circleObject) {
             recordsSphere.circleObject.position.x = value;
@@ -2095,7 +2134,7 @@ function main() {
     });
     // North End
     const northEndSphere = new popUpCircle(-50, 31, -28, 11);
-    northEndSphere.createSphereRadius(scene);
+    //northEndSphere.createSphereRadius(scene);
     northEndGUI.add(northEndSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
         if (northEndSphere.circleObject) {
             northEndSphere.circleObject.position.x = value;
@@ -2108,7 +2147,7 @@ function main() {
     });
     // South End
     const southEndSphere = new popUpCircle(-52, 31, 86, 11);
-    southEndSphere.createSphereRadius(scene);
+    //southEndSphere.createSphereRadius(scene);
     southEndGUI.add(southEndSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
         if (southEndSphere.circleObject) {
             southEndSphere.circleObject.position.x = value;
@@ -2120,7 +2159,7 @@ function main() {
         }
     });
 
-    popCirclesGUI.open();
+    //popCirclesGUI.open();
 
     {
         const skyColor = 0xB1E1FF;
@@ -2141,7 +2180,7 @@ function main() {
         const lightFolder = gui.addFolder('Light');
         lightFolder.addColor(new ColorGUIHelper(light, 'color'), 'value').name('color');
         lightFolder.add(light, 'intensity', 0, 10, 0.01);
-        lightFolder.open();
+       // lightFolder.open();
 
     }
 
@@ -2276,7 +2315,7 @@ function main() {
 
         skyBoxFolder.add(fileController, 'uploadSkybox').name('Upload Skybox');
 
-        skyBoxFolder.open(); // Optional: opens the folder by default
+        //skyBoxFolder.open(); // Optional: opens the folder by default
     }
 
 
@@ -2286,7 +2325,7 @@ function main() {
     const fogGUIHelper = new FogGUIHelper(scene.fog, camera);
     fogFolder.add(fogGUIHelper, 'density', 0, 0.05, 0.0001);
     fogFolder.addColor(fogGUIHelper, 'color');
-    fogFolder.open();
+    //fogFolder.open();
     updateGUIVisibility();
 
     // GLTF Model loading with improved error handling
