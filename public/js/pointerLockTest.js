@@ -1000,6 +1000,10 @@ function main() {
     let moveLeft = false;
     let moveRight = false;
 
+    let rotateLeft = false;
+    let rotateRight = false;
+    let rotationVelocity = 0;
+
     let isGUIMode = false;
     let guiFocused = false;
 
@@ -1944,7 +1948,6 @@ function main() {
             case 'KeyW':
                 moveForward = true;
                 break;
-            case 'ArrowLeft':
             case 'KeyA':
                 moveLeft = true;
                 break;
@@ -1952,13 +1955,21 @@ function main() {
             case 'KeyS':
                 moveBackward = true;
                 break;
-            case 'ArrowRight':
             case 'KeyD':
                 moveRight = true;
+                break;
+            case 'KeyQ':
+            case 'ArrowLeft':
+                if (isGUIMode) rotateLeft = true;
+                break;
+            case 'KeyE':
+            case 'ArrowRight':
+                if (isGUIMode) rotateRight = true;
                 break;
         }
     };
 
+    /*
     const rotateTheCamera = function (event) {
         if (guiFocused) return;
 
@@ -1976,6 +1987,7 @@ function main() {
                 break;
         }
     }
+        */
     const onKeyUp = function (event) {
 
         switch (event.code) {
@@ -1995,12 +2007,20 @@ function main() {
             case 'KeyD':
                 moveRight = false;
                 break;
+            case 'KeyQ':
+            case 'ArrowLeft':
+                rotateLeft = false;
+                break;
+            case 'KeyE':
+            case 'ArrowRight':
+                rotateRight = false;
+                break;
         }
     };
 
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
-    document.addEventListener('keydown', rotateTheCamera);
+    //document.addEventListener('keydown', rotateTheCamera);
 
     document.addEventListener('mousedown', (event) => {
         if (event.button === 1) {
@@ -2460,6 +2480,23 @@ function main() {
 
                 velocity.x -= velocity.x * 10.0 * delta;
                 velocity.z -= velocity.z * 10.0 * delta;
+
+                rotationVelocity -= rotationVelocity * 10.0 * delta;
+            
+            // Add smooth rotation handling
+            if (rotateLeft && isGUIMode) {
+                rotationVelocity -= 2.0 * delta;  // Adjust speed as needed
+            }
+            if (rotateRight && isGUIMode) {
+                rotationVelocity += 2.0 * delta;  // Adjust speed as needed
+            }
+
+            // Apply rotation
+            if (Math.abs(rotationVelocity) > 0.001) {
+                cameraEuler.setFromQuaternion(camera.quaternion);
+                cameraEuler.y += rotationVelocity * delta;
+                camera.quaternion.setFromEuler(cameraEuler);
+            }
 
                 direction.z = Number(moveForward) - Number(moveBackward);
                 direction.x = Number(moveRight) - Number(moveLeft);
