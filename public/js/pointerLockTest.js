@@ -942,7 +942,7 @@ function setupCameraBoundaries(scene, camera, controls) {
     const boundary = new boundaryBox(-62, -35, 32, 32, -34, 84);
 
     // Uncomment to visualize for debugging
-    boundary.createVisualization(scene);
+    //boundary.createVisualization(scene);
 
     // Store the previous valid position
     let lastValidPosition = camera.position.clone();
@@ -1041,8 +1041,8 @@ function main() {
     camera.position.set(-53.35, 32, 4.64);
 
     const scene = new THREE.Scene();
-    const gui = new GUI();
-
+    const gui = new GUI({ title: 'Settings' });
+    gui.close();
     
     const debugFolder = gui.addFolder('Debug Visuals');
     const debugSettings = {
