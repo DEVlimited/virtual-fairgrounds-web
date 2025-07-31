@@ -721,89 +721,35 @@ class popUpCircle {
     }
 
     checkForIntersection(camera) {
+    // Add null check at the beginning
+    if (!this.circleObject) {
+        // Still check distance even without visual object
         const cameraPosition = new THREE.Vector3();
         camera.getWorldPosition(cameraPosition);
-
-        const sphereCenter = this.circleObject.position.clone();
-
-        const distance = cameraPosition.distanceTo(sphereCenter);
-
+        
+        const distance = cameraPosition.distanceTo(this.position);
+        
         if (distance < this.geometryRadius) {
             this.cameraInside = true;
-        } else if (distance >= this.geometryRadius) {
+        } else {
             this.cameraInside = false;
         }
+        return;
+    }
+    // If the circleObject exists, check for intersection
+    const cameraPosition = new THREE.Vector3();
+    camera.getWorldPosition(cameraPosition);
+
+    const sphereCenter = this.circleObject.position.clone();
+
+    const distance = cameraPosition.distanceTo(sphereCenter);
+
+    if (distance < this.geometryRadius) {
+        this.cameraInside = true;
+    } else if (distance >= this.geometryRadius) {
+        this.cameraInside = false;
     }
 }
-
-// Pop Up Object functionality
-const PopupManager = {
-
-    overlay: document.getElementById('popup'),
-    container: document.querySelector('.popup-container'),
-    title: document.getElementById('popup-title'),
-    content: document.getElementById('popup-content'),
-
-    popUpActive: false,
-
-    // This just unhides the pop up nothing special
-    show: function (title = 'Popup', content = '') {
-
-        this.title.textContent = title;
-
-        this.content.innerHTML = content;
-
-        this.overlay.style.display = 'block';
-        this.overlay.classList.add('show');
-        this.container.classList.add('show');
-
-        document.body.style.overflow = 'hidden';
-        document.body.style.cursor = 'default';
-    },
-
-    // self explanatory...
-    hide: function () {
-
-        this.overlay.classList.remove('show');
-        this.container.classList.remove('show');
-
-        setTimeout(() => {
-            this.overlay.style.display = 'none';
-        }, 300);
-
-        document.body.style.overflow = 'auto';
-
-        document.body.style.cursor = 'none';
-    },
-
-    // This basically is where it defines if it is a image or text pop up. Can be edited to do anything tbh
-    generatePopup: function (title, config) {
-        let content = '';
-
-        if (config.text) {
-            content += `<p>${config.text}</p>`;
-        }
-
-        if (config.image) {
-            content += `<img src="${config.image.src}" alt="${config.image.alt || ''}">`;
-            if (config.image.caption) {
-                content += `<p><em>${config.image.caption}</em></p>`;
-            }
-        }
-
-        if (config.html) {
-            content += config.html;
-        }
-
-        this.show(title, content);
-    }
-};
-
-function closePopup() {
-    setTimeout(() => {
-        PopupManager.hide();
-    }, 300);
-    PopupManager.popUpActive = false;
 }
 
 //This is the barrier box object
@@ -996,7 +942,7 @@ function setupCameraBoundaries(scene, camera, controls) {
     const boundary = new boundaryBox(-62, -35, 32, 32, -34, 84);
 
     // Uncomment to visualize for debugging
-    boundary.createVisualization(scene);
+    //boundary.createVisualization(scene);
 
     // Store the previous valid position
     let lastValidPosition = camera.position.clone();
@@ -1040,56 +986,6 @@ function setupCameraBoundaries(scene, camera, controls) {
     return boundary;
 }
 
-const informationArray = [
-    // This is the sample for the popUps, you can use these however you want. 
-    // I am hoping maybe in the future I could setup like a gallery type popup
-    // that has multiple images that you can scroll through or maybe
-    // a fully custom popup that can be designed anyway you want 
-    // text: '',
-    // image: {
-    //     src: '',
-    //     alt: '',
-    //     caption: ''
-    // },
-    // html: 
-    {
-        text: 'Welcome to the Fairgrounds neighborhood circa 1955. You can learn mor here at the East Side Theater.',
-        image: {
-            src: '../public/images/eastside/East Side Theater 720-722 Bath.jpg',
-            alt: '700 block of N Bath at bottom',
-            caption: 'The Fairgrounds neighborhood had the approximate borders of NE 8th Street on the north to the Rock Island railroad tracks at the south, and Stonewall or Lottie Avenues to the West and Eastern Avenue (now MLK) to the east, and was bisected by active MKT railroad tracks running southwest-northeast. Today’s Douglass High School (900 N MLK) was the site of the first State Fairgrounds. The area was near the path of the unchannelled North Canadian River and experienced flooding. The Fairgrounds was an incredibly dense, predominately Black neighborhood. Because of redlining and other systemically racist house practices, the majority of African American residents of Oklahoma City primarily lived in a few specific neighborhoods.'
-        },
-        html: '<p><strong>The East Side Theater and its neighboring commercial development was the dream of George Richardson and J.W. Sanford, Sr.</strong></p>'
-    },
-    {
-        text: 'Bill\'s Cleaners. Located at 718 Bath Avenue.',
-        image: {
-            src: '../public/images/718/Black Dis 1954-05-01 Bills Cleaners.PNG',
-            alt: 'Black Dispatch Ad for Bill\'s Cleaners',
-            caption: 'Bill would often publish his bowling scores in the Black Dispatch'
-        },
-        html: '<p><strong>Heard he was good at bowling!</strong></p>'
-    },
-    {
-        text: 'This location, 714 Bath Ave, was a variety of domino parlors. Like pool halls, domino was a dominant form of leisure in the twentieth century, particularly for men.',
-        image: {
-            src: '../public/images/714/714 Interior 1.tif',
-            alt: 'Image of 714 Bath Avenue Interior Circa 1950',
-            caption: "Domino's Billiard Hall - 714 Bath Avenue - ~1950"
-        },
-        html: '<p><strong>This room of the model was informed by actual interior photos of the building shown here.</strong></p>'
-    },
-    {
-        text: 'Records!',
-        image: {
-            src: 'https://picsum.photos/350/200',
-            alt: 'Filler Image',
-            caption: 'Cool images'
-        },
-        html: '<p><strong>Lots of goooood music here</strong></p>'
-    }
-]
-
 function main() {
     setupCustomFogShaders();
 
@@ -1108,6 +1004,10 @@ function main() {
     let guiFocused = false;
 
     let cameraEuler = new Euler(0, 0, 0, 'YXZ');
+
+    const testAudio = new Audio('../public/audio/eastsideTheatre1.mp3');
+    testAudio.addEventListener('canplay', () => console.log('File is playable'));
+    testAudio.addEventListener('error', (e) => console.error('File error:', e));
 
     let cameraBoundarySystem;
     let prevTime = performance.now();
@@ -1141,7 +1041,46 @@ function main() {
     camera.position.set(-53.35, 32, 4.64);
 
     const scene = new THREE.Scene();
-    const gui = new GUI();
+    const gui = new GUI({ title: 'Settings' });
+    gui.close();
+    
+    const debugFolder = gui.addFolder('Debug Visuals');
+    const debugSettings = {
+        showBoundaryBox: false,
+        showPopupCircles: false,
+        
+        toggleBoundaryBox: function() {
+            if (this.showBoundaryBox) {
+                cameraBoundarySystem.createVisualization(scene);
+            } else {
+                if (cameraBoundarySystem.boundaryBox) {
+                    scene.remove(cameraBoundarySystem.boundaryBox);
+                }
+            }
+        },
+        
+        togglePopupCircles: function() {
+            if (this.showPopupCircles) {
+                theaterSphere.createSphereRadius(scene);
+                cleanersSphere.createSphereRadius(scene);
+                dominosSphere.createSphereRadius(scene);
+                recordsSphere.createSphereRadius(scene);
+            } else {
+                scene.remove(theaterSphere.circleObject);
+                scene.remove(cleanersSphere.circleObject);
+                scene.remove(dominosSphere.circleObject);
+                scene.remove(recordsSphere.circleObject);
+            }
+        }
+    };
+
+    debugFolder.add(debugSettings, 'showBoundaryBox')
+        .name('Show Boundary Box')
+        .onChange(() => debugSettings.toggleBoundaryBox());
+        
+    debugFolder.add(debugSettings, 'showPopupCircles')
+        .name('Show Popup Circles')
+        .onChange(() => debugSettings.togglePopupCircles());
 
     setupCarouselGUI(gui);
 
@@ -1163,6 +1102,8 @@ function main() {
         
         imageManifest: null,
         tiffCache: new Map(),
+
+        audio: new Audio(),
         
         async init() {
             try {
@@ -1240,6 +1181,7 @@ function main() {
             document.body.style.cursor = 'default';
             
             this.initializeCarousel();
+            this.initializeAudio();
             
             if (this.autoplayEnabled && this.currentImages.length > 1) {
                 this.startAutoplay();
@@ -1258,11 +1200,123 @@ function main() {
             document.body.style.cursor = 'none';
             
             this.stopAutoplay();
+
+            if (this.audio) {
+                this.audio.pause();
+                this.audio.currentTime = 0;
+            }
             
             this.currentImageIndex = 0;
             this.currentImages = [];
             this.currentLocation = null;
             this.removeCarouselListeners();
+        },
+
+        initializeAudio: function() {
+            
+            const locationData = this.getLocationData(this.currentLocation);
+            
+            if (!locationData || !locationData.audio) {
+                console.log('No audio data found for location');
+                return;
+            }
+
+            const audioContainer = this.content.querySelector('.audio-player-container');
+            console.log('Audio container found:', !!audioContainer);
+            
+            if (!audioContainer) {
+                console.log('Audio container not found in DOM');
+                return;
+            }
+
+            this.audio.src = locationData.audio[0].src;
+
+            const playButton = audioContainer.querySelector('.audio-controls.play');
+            const pauseButton = audioContainer.querySelector('.audio-controls.pause');
+
+            if (playButton && pauseButton) {
+
+                playButton.removeEventListener('click', this.playAudio);
+                pauseButton.removeEventListener('click', this.pauseAudio);
+                
+                this.playAudio = () => {
+                    console.log('Play button clicked');
+                    console.log('Audio src:', this.audio.src);
+                    console.log('Audio readyState:', this.audio.readyState);
+
+                    if (!this.audio.src) {
+                        console.error('No audio source set');
+                        return;
+                    }
+
+                    const playPromise = this.audio.play();
+                    
+                    if (playPromise !== undefined) {
+                        playPromise
+                            .then(() => {
+                                console.log('Audio playing successfully');
+                                playButton.style.display = 'none';
+                                pauseButton.style.display = 'inline-block';
+                            })
+                            .catch(error => {
+                                console.error('Error playing audio:', error);
+                            });
+                    }
+                };
+
+                this.pauseAudio = () => {
+                    console.log('Pause button clicked');
+                    this.audio.pause();
+
+                    playButton.style.display = 'inline-block';
+                    pauseButton.style.display = 'none';
+                };
+
+                playButton.addEventListener('click', this.playAudio);
+                pauseButton.addEventListener('click', this.pauseAudio);
+
+                playButton.style.display = 'inline-block';
+                pauseButton.style.display = 'none';
+                
+                this.audio.addEventListener('play', () => {
+                    playButton.style.display = 'none';
+                    pauseButton.style.display = 'inline-block';
+                });
+                
+                this.audio.addEventListener('pause', () => {
+                    playButton.style.display = 'inline-block';
+                    pauseButton.style.display = 'none';
+                });
+                
+                this.audio.addEventListener('ended', () => {
+                    playButton.style.display = 'inline-block';
+                    pauseButton.style.display = 'none';
+                });
+            }
+        },
+
+        generateAudioHTML: function(locationData) {
+            if (!locationData.audio) return '';
+            
+            return `
+                <div class="audio-player-container">
+                    <div class="audio-info">
+                        <span class="audio-title">${locationData.audio[0].title || 'Audio'}</span>
+                    </div>
+                    <div class="audio-controls-wrapper">
+                        <button class="audio-controls play" title="Play">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M8 5v14l11-7z"/>
+                            </svg>
+                        </button>
+                        <button class="audio-controls pause" title="Pause" style="display: none;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            `;
         },
         
         initializeCarousel: function() {
@@ -1293,7 +1347,6 @@ function main() {
             this.keyboardHandler = (e) => {
                 if (e.key === 'ArrowLeft') this.previousImage();
                 if (e.key === 'ArrowRight') this.nextImage();
-                if (e.key === 'Escape') this.hide();
             };
             document.addEventListener('keydown', this.keyboardHandler);
             
@@ -1535,6 +1588,10 @@ function main() {
             if (locationData.html) {
                 content += locationData.html;
             }
+
+            if (locationData.audio) {
+                content += this.generateAudioHTML(locationData);
+            }
             
             this.show(locationData.title, content);
         }
@@ -1622,54 +1679,66 @@ function main() {
         carouselFolder.add(carouselSettings, 'reloadManifest').name('Reload Images');
         carouselFolder.add(carouselSettings, 'checkTiffSupport').name('Check TIFF Support');
         
-        carouselFolder.open();
+        //carouselFolder.open();
     }
 
-// Updated interact listener (place this INSIDE main() after all the sphere creations)
-const interactListener = function (event) {
-    if (isGUIMode || instructionsActive) return;
-    
-    switch (event.code) {
-        case 'KeyF':
-            console.log('Interacted!');
-            if (theaterSphere.cameraInside) {
-                PopupManager.popUpActive = true;
-                PopupManager.generatePopupFromLocation('theater');
-                controls.unlock();
-                event.preventDefault();
-                break;
-            } else if (cleanersSphere.cameraInside) {
-                PopupManager.popUpActive = true;
-                PopupManager.generatePopupFromLocation('cleaners');
-                controls.unlock();
-                event.preventDefault();
-                break;
-            } else if (dominosSphere.cameraInside) {
-                PopupManager.popUpActive = true;
-                PopupManager.generatePopupFromLocation('dominos');
-                controls.unlock();
-                event.preventDefault();
-                break;
-            } else if (recordsSphere.cameraInside) {
-                PopupManager.popUpActive = true;
-                PopupManager.generatePopupFromLocation('records');
-                controls.unlock();
-                event.preventDefault();
-                break;
-            }
+    // Updated interact listener (place this INSIDE main() after all the sphere creations)
+    const interactListener = function (event) {
+        if (isGUIMode || instructionsActive) return;
+        
+        switch (event.code) {
+            case 'KeyF':
+                console.log('Interacted!');
+                if (theaterSphere.cameraInside) {
+                    PopupManager.popUpActive = true;
+                    PopupManager.generatePopupFromLocation('theater');
+                    controls.unlock();
+                    event.preventDefault();
+                    break;
+                } else if (cleanersSphere.cameraInside) {
+                    PopupManager.popUpActive = true;
+                    PopupManager.generatePopupFromLocation('cleaners');
+                    controls.unlock();
+                    event.preventDefault();
+                    break;
+                } else if (dominosSphere.cameraInside) {
+                    PopupManager.popUpActive = true;
+                    PopupManager.generatePopupFromLocation('dominos');
+                    controls.unlock();
+                    event.preventDefault();
+                    break;
+                } else if (recordsSphere.cameraInside) {
+                    PopupManager.popUpActive = true;
+                    PopupManager.generatePopupFromLocation('records');
+                    controls.unlock();
+                    event.preventDefault();
+                    break;
+                } else if (northEndSphere.cameraInside) {
+                    PopupManager.popUpActive = true;
+                    PopupManager.generatePopupFromLocation('northEnd');
+                    controls.unlock();
+                    event.preventDefault();
+                    break;
+                }  else if (southEndSphere.cameraInside) {
+                    PopupManager.popUpActive = true;
+                    PopupManager.generatePopupFromLocation('southEnd');
+                    controls.unlock();
+                    event.preventDefault();
+                    break;
+                }
+        }
+    };
+
+    // Add the event listener for interactions
+    document.addEventListener('keydown', interactListener);
+
+    // Close popup function (if not already defined)
+    function closePopup() {
+        setTimeout(() => {
+            PopupManager.hide();
+        }, 300);
+        PopupManager.popUpActive = false;
     }
-};
-
-// Add the event listener for interactions
-document.addEventListener('keydown', interactListener);
-
-// Close popup function (if not already defined)
-function closePopup() {
-    setTimeout(() => {
-        PopupManager.hide();
-    }, 300);
-    PopupManager.popUpActive = false;
-}
 
     function setupOptimizedRendering(scene, camera, renderer) {
         // Create the culling/LOD manager
@@ -1695,7 +1764,7 @@ function closePopup() {
     cameraFolder.add(minMaxGUIHelper, 'min', 0.1, 50, 0.1).name('near');
     cameraFolder.add(minMaxGUIHelper, 'max', 0.1, 650, 0.1).name('far');
     cameraFolder.add(cameraResetButton, 'reset_position');
-    cameraFolder.open();
+    //cameraFolder.open();
 
     // Pointer lock controls
     const controls = new PointerLockControls(camera, canvas);
@@ -2015,7 +2084,7 @@ function closePopup() {
                 cameraBoundarySystem.rotationParams.z = (value * Math.PI) / 180;
                 cameraBoundarySystem.updateRotation();
             });
-        boundaryFolder.open();
+       // boundaryFolder.open();
     }
 
     // Intersection pop Circles!
@@ -2023,11 +2092,13 @@ function closePopup() {
     const theaterGUI = popCirclesGUI.addFolder('Theater Circle');
     const cleanersGUI = popCirclesGUI.addFolder('Bills Circle');
     const dominosGUI = popCirclesGUI.addFolder('Dominos Circle');
-    const recordsGUI = popCirclesGUI.addFolder('Records Circle')
+    const recordsGUI = popCirclesGUI.addFolder('Records Circle');
+    const northEndGUI = popCirclesGUI.addFolder('NorthEnd Circle');
+    const southEndGUI = popCirclesGUI.addFolder('SouthEnd Circle');
 
     // Theater circle Intersection popup
     const theaterSphere = new popUpCircle(-32, 31, 7, 8);
-    theaterSphere.createSphereRadius(scene);
+    //theaterSphere.createSphereRadius(scene);
     theaterGUI.add(theaterSphere.position, 'x', -50, 50, 1).onChange((value) => {
         if (theaterSphere.circleObject) {
             theaterSphere.circleObject.position.x = value;
@@ -2040,7 +2111,7 @@ function closePopup() {
     });
     // Bills Cleaners
     const cleanersSphere = new popUpCircle(-35, 31, 32, 4);
-    cleanersSphere.createSphereRadius(scene);
+    //cleanersSphere.createSphereRadius(scene);
     cleanersGUI.add(cleanersSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
         if (cleanersSphere.circleObject) {
             cleanersSphere.circleObject.position.x = value;
@@ -2053,7 +2124,7 @@ function closePopup() {
     });
     // Dominos place with THE FAN
     const dominosSphere = new popUpCircle(-35.2, 31, 57.8, 3);
-    dominosSphere.createSphereRadius(scene);
+    //dominosSphere.createSphereRadius(scene);
     dominosGUI.add(dominosSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
         if (dominosSphere.circleObject) {
             dominosSphere.circleObject.position.x = value;
@@ -2066,7 +2137,7 @@ function closePopup() {
     });
     // Records Shop, good music bruh
     const recordsSphere = new popUpCircle(-36, 31, 63, 2);
-    recordsSphere.createSphereRadius(scene);
+    //recordsSphere.createSphereRadius(scene);
     recordsGUI.add(recordsSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
         if (recordsSphere.circleObject) {
             recordsSphere.circleObject.position.x = value;
@@ -2077,8 +2148,34 @@ function closePopup() {
             recordsSphere.circleObject.position.z = value;
         }
     });
+    // North End
+    const northEndSphere = new popUpCircle(-50, 31, -28, 11);
+    //northEndSphere.createSphereRadius(scene);
+    northEndGUI.add(northEndSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
+        if (northEndSphere.circleObject) {
+            northEndSphere.circleObject.position.x = value;
+        }
+    });
+    northEndGUI.add(northEndSphere.position, 'z', -20, 100, 0.1).onChange((value) => {
+        if (northEndSphere.circleObject) {
+            northEndSphere.circleObject.position.z = value;
+        }
+    });
+    // South End
+    const southEndSphere = new popUpCircle(-52, 31, 86, 11);
+    //southEndSphere.createSphereRadius(scene);
+    southEndGUI.add(southEndSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
+        if (southEndSphere.circleObject) {
+            southEndSphere.circleObject.position.x = value;
+        }
+    });
+    southEndGUI.add(southEndSphere.position, 'z', -20, 100, 0.1).onChange((value) => {
+        if (southEndSphere.circleObject) {
+            southEndSphere.circleObject.position.z = value;
+        }
+    });
 
-    popCirclesGUI.open();
+    //popCirclesGUI.open();
 
     {
         const skyColor = 0xB1E1FF;
@@ -2099,7 +2196,7 @@ function closePopup() {
         const lightFolder = gui.addFolder('Light');
         lightFolder.addColor(new ColorGUIHelper(light, 'color'), 'value').name('color');
         lightFolder.add(light, 'intensity', 0, 10, 0.01);
-        lightFolder.open();
+       // lightFolder.open();
 
     }
 
@@ -2234,7 +2331,7 @@ function closePopup() {
 
         skyBoxFolder.add(fileController, 'uploadSkybox').name('Upload Skybox');
 
-        skyBoxFolder.open(); // Optional: opens the folder by default
+        //skyBoxFolder.open(); // Optional: opens the folder by default
     }
 
 
@@ -2244,7 +2341,7 @@ function closePopup() {
     const fogGUIHelper = new FogGUIHelper(scene.fog, camera);
     fogFolder.add(fogGUIHelper, 'density', 0, 0.05, 0.0001);
     fogFolder.addColor(fogGUIHelper, 'color');
-    fogFolder.open();
+    //fogFolder.open();
     updateGUIVisibility();
 
     // GLTF Model loading with improved error handling
@@ -2346,7 +2443,9 @@ function closePopup() {
                 cleanersSphere.checkForIntersection(camera);
                 dominosSphere.checkForIntersection(camera);
                 recordsSphere.checkForIntersection(camera);
-                let theCameraInside = (theaterSphere.cameraInside || cleanersSphere.cameraInside || dominosSphere.cameraInside || recordsSphere.cameraInside) ? true : false;
+                northEndSphere.checkForIntersection(camera);
+                southEndSphere.checkForIntersection(camera);
+                let theCameraInside = (theaterSphere.cameraInside || cleanersSphere.cameraInside || dominosSphere.cameraInside || recordsSphere.cameraInside || northEndSphere.cameraInside || southEndSphere.cameraInside) ? true : false;
                 if (theCameraInside) {
                     document.getElementById('interactionBlocker').style.display = 'block';
                     document.getElementById('interactDesc').style.display = 'flex';

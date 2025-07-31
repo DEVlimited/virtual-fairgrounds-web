@@ -528,6 +528,7 @@ function main() {
     const instructions = document.getElementById( 'instructions' );
 
     const gui = new GUI();
+    gui.close();
     
     // Camera controls
     var cameraResetButton = {
@@ -543,7 +544,7 @@ function main() {
     cameraFolder.add(minMaxGUIHelper, 'min', 0.1, 50, 0.1).name('near');
     cameraFolder.add(minMaxGUIHelper, 'max', 0.1, 650, 0.1).name('far');
     cameraFolder.add(cameraResetButton, 'reset_position');
-    cameraFolder.open();
+    cameraFolder.close();
 
     // Camera position display
     const cameraPositionElement = document.getElementById('camera-position');
@@ -698,7 +699,7 @@ function main() {
                 cameraBoundarySystem.rotationParams.z = (value * Math.PI) / 180;
                 cameraBoundarySystem.updateRotation();
             });
-        boundaryFolder.open();
+        boundaryFolder.close();
     }
 
     // Function to set scissor for split view
@@ -745,7 +746,7 @@ function main() {
         const lightFolder = gui.addFolder('Light');
         lightFolder.addColor(new ColorGUIHelper(light, 'color'), 'value').name('color');
         lightFolder.add(light, 'intensity', 0, 5, 0.01);
-        lightFolder.open();
+        lightFolder.close();
     }
 
     // Add skybox and GUI Controls
@@ -819,7 +820,7 @@ function main() {
             skyboxController.changeSkyBox(value);
         });
         
-        skyBoxFolder.open(); // Optional: opens the folder by default
+        skyBoxFolder.close(); // Optional: opens the folder by default
     }
 
     // Set up fog with GUI controls
@@ -828,7 +829,7 @@ function main() {
     const fogGUIHelper = new FogGUIHelper(scene.fog, camera);
     fogFolder.add(fogGUIHelper, 'density', 0, 0.05, 0.0001);
     fogFolder.addColor(fogGUIHelper, 'color');
-    fogFolder.open();
+    fogFolder.close();
 
     // Load the GLTF model
     {

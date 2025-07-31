@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated": "2025-01-06",
+  "updated": "2025-06-01",
   "locations": [
     {
       "id": "theater",
@@ -28,6 +28,22 @@
           "alt": "Aerial view of the neighborhood",
           "caption": "Aerial photograph showing the density of the Fairgrounds neighborhood",
           "type": "tiff"
+        }
+      ],
+      "audio": [
+        {
+          "src": "../public/audio/eastsideTheatre1.mp3",
+          "type": "audio/mpeg",
+          "title": "History of the East Side Theater",
+          "speaker": "Anita Arnold",
+          "interviewer": ""
+        },
+        {
+          "src": "../public/audio/eastsideTheatre2.mp3",
+          "type": "audio/mpeg",
+          "title": "JW Sanford on building the Theatre and Bath Business District",
+          "speaker": "JW Sanford",
+          "interviewer": ""
         }
       ]
     },
@@ -58,6 +74,15 @@
           "caption": "The back workroom at Bill's Cleaners",
           "type": "tiff"
         }
+      ],
+      "audio": [
+        {
+          "src": "../public/audio/bills1.mp3",
+          "type": "audio/mpeg",
+          "title": "Bath Avenue History",
+          "speaker": "Alvis Melva Franklin",
+          "interviewer": "Sheldon Beech"
+        }
       ]
     },
     {
@@ -81,6 +106,15 @@
           "src": "../public/images/714/714_patrons.png",
           "alt": "Parlor patrons",
           "caption": "Regular patrons enjoying an afternoon game"
+        }
+      ],
+      "audio": [
+        {
+          "src": "../public/audio/dominosBilliardHall.mp3",
+          "type": "audio/mpeg",
+          "title": "Bath Avenue History",
+          "speaker": "Huerta Walker",
+          "interviewer": "Sheldon Beech"
         }
       ]
     },
@@ -111,7 +145,31 @@
           "caption": "Display of the week's most popular albums",
           "type": "tiff"
         }
+      ],
+      "audio": [
+        {
+          "src": "../public/audio/melodyRecords1.mp3",
+          "type": "audio/mpeg",
+          "title": "History of Melody Records",
+          "speaker": "Anita Arnold"
+        },
+        {
+          "src": "../public/audio/melodyRecords2.mp3",
+          "type": "audio/mpeg",
+          "title": "History of Melody Records",
+          "speaker": "Sandra Richards"
+        }
       ]
+    },
+    {
+      "id": "northEnd",
+      "title": "placeholder",
+      "description": "Ooga Booga"
+    },
+    {
+      "id": "southEnd",
+      "title": "placeholder",
+      "description": "Ooga Booga"
     }
   ]
 }

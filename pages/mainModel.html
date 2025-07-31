@@ -199,6 +199,119 @@
                 transform: translate(-50%, -50%) scale(1);
             }
         }
+
+        /* Audio CSS -All done by claude */
+
+        .audio-player-container {
+            color: black;
+            padding: 20px;
+            margin: 20px 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .audio-player-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            gap: 15px;
+        }
+
+        .audio-icon {
+            font-size: 2.5em;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .audio-info {
+            flex: 1;
+        }
+
+        .audio-title {
+            margin: 0 0 5px 0;
+            font-size: 1.3em;
+            font-weight: 600;
+            color: black;
+        }
+
+        .audio-description {
+            margin: 0;
+            font-size: 0.9em;
+            opacity: 0.9;
+            line-height: 1.4;
+        }
+
+        .audio-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .audio-controls.play,
+        .audio-controls.pause {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 2px solid black;
+            color: black;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .audio-controls.play:hover,
+        .audio-controls.pause:hover {
+            background: rgba(255, 255, 255, 0.8);
+            border-color: rgba(0, 0, 0, 0.5);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .audio-controls.play:active,
+        .audio-controls.pause:active  {
+            transform: translateY(0);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .audio-icon-svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+
+        /* Responsive design */
+        @media (max-width: 600px) {
+            .audio-player-container {
+                padding: 15px;
+                margin: 15px 0;
+            }
+            
+            .audio-player-header {
+                flex-direction: column;
+                text-align: center;
+                gap: 10px;
+            }
+            
+            .audio-controls {
+                flex-direction: column;
+            }
+            
+            .audio-controls.play,
+            .audio-controls.pause {
+                justify-content: center;
+                padding: 15px;
+            }
+        }
     </style>
 </head>
 
