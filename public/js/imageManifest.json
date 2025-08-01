@@ -9,25 +9,43 @@
       "html": "<p><strong>The East Side Theater and its neighboring commercial development was the dream of George Richardson and J.W. Sanford, Sr.</strong></p><p>The Fairgrounds neighborhood had the approximate borders of NE 8th Street on the north to the Rock Island railroad tracks at the south.</p>",
       "images": [
         {
-          "src": "../public/images/eastside/East Side Theater 720-722 Bath.jpg",
+          "src": "../public/images/eastside/theatre.jpg",
           "alt": "East Side Theater exterior view",
           "caption": "The East Side Theater at 720-722 Bath Avenue"
         },
         {
-          "src": "../public/images/eastside/theater_interior.jpg",
+          "src": "../public/images/eastside/BlackDis0.jpg",
           "alt": "Theater interior",
           "caption": "Interior view of the East Side Theater showing the main auditorium"
         },
         {
-          "src": "../public/images/eastside/theater_marquee.png",
+          "src": "../public/images/eastside/BlackDis1.png",
           "alt": "Theater marquee",
           "caption": "The iconic marquee advertising current shows"
         },
         {
-          "src": "../public/images/eastside/aerial_view.tif",
+          "src": "../public/images/eastside/BlackDis2.jpg",
           "alt": "Aerial view of the neighborhood",
           "caption": "Aerial photograph showing the density of the Fairgrounds neighborhood",
-          "type": "tiff"
+          "type": "jpg"
+        },
+        {
+          "src": "../public/images/eastside/BlackDis3.jpg",
+          "alt": "Theater interior with patrons",
+          "caption": "Patrons enjoying a show at the East Side Theater",
+          "type": "jpg"
+        },
+        {
+          "src": "../public/images/eastside/BlackDis4.jpg",
+          "alt": "Theater lobby",
+          "caption": "The lobby area of the East Side Theater, bustling with activity",
+          "type": "jpg"
+        },
+        {
+          "src": "../public/images/eastside/BlackDis5.jpg",
+          "alt": "Theater ticket booth",
+          "caption": "The ticket booth of the East Side Theater, a hub of excitement",
+          "type": "jpg"
         }
       ],
       "audio": [
@@ -54,25 +72,40 @@
       "html": "<p><strong>Bill was known throughout the community not just for his cleaning services, but also for his prowess at the bowling alley!</strong></p>",
       "images": [
         {
-          "src": "../public/images/718/Black Dis 1954-05-01 Bills Cleaners.PNG",
+          "src": "../public/images/718/718 Interior 1.jpg",
           "alt": "Black Dispatch Ad for Bill's Cleaners",
           "caption": "Advertisement from the Black Dispatch, May 1, 1954"
         },
         {
-          "src": "../public/images/718/bills_storefront.jpg",
+          "src": "../public/images/718/718 interior 2.jpg",
           "alt": "Bill's Cleaners storefront",
           "caption": "The storefront of Bill's Cleaners on a busy Saturday"
         },
         {
-          "src": "../public/images/718/bowling_scores.jpg",
+          "src": "../public/images/718/718 interior 3.jpg",
           "alt": "Bowling scores",
           "caption": "Bill's bowling scores published in the Black Dispatch"
         },
         {
-          "src": "../public/images/718/interior_workspace.tif",
+          "src": "../public/images/718/718 interior 4.jpg",
           "alt": "Interior workspace",
           "caption": "The back workroom at Bill's Cleaners",
           "type": "tiff"
+        },
+        {
+          "src": "../public/images/718/BlackDis0.PNG",
+          "alt": "Bill's Cleaners staff",
+          "caption": "Bill and his staff at work, circa 1950s"
+        },
+        {
+          "src": "../public/images/718/BlackDis1.jpg",
+          "alt": "Bill's Cleaners storefront",
+          "caption": "Another view of the Bill's Cleaners storefront, bustling with customers"
+        },
+        {
+          "src": "../public/images/718/BlackDis2.PNG",
+          "alt": "Bill's Cleaners interior",
+          "caption": "Interior view of Bill's Cleaners showing the equipment and staff at work"
         }
       ],
       "audio": [
@@ -163,13 +196,13 @@
     },
     {
       "id": "northEnd",
-      "title": "placeholder",
-      "description": "Ooga Booga"
+      "title": "Welcome to the Fairgrounds",
+      "description": "Welcome to the Fairgrounds neighborhood circa 1955. You can learn more here at the East Side Theater by approaching the ticket booth under the awning."
     },
     {
       "id": "southEnd",
-      "title": "placeholder",
-      "description": "Ooga Booga"
+      "title": "Welcome to the Fairgrounds",
+      "description": "Welcome to the Fairgrounds neighborhood circa 1955. You can learn more here at the East Side Theater by approaching the ticket booth under the awning."
     }
   ]
 }

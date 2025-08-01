@@ -178,6 +178,13 @@ function setupCustomFogShaders() {
     #endif`;
 }
 
+// Create a shader modifier that matches your existing system
+const shaderModifier = (shader) => {
+    shader.uniforms.fogTime = { value: 0.0 };
+    cullingLODManager.trackedShaders.push(shader);
+};
+
+
 // Advanced Frustum Culling and LOD System for Three.js
 // This is another LODManager section of code that I found online,
 // It helps keep only objects in the frustrum loaded and unloads objects that are too far away
@@ -986,6 +993,78 @@ function setupCameraBoundaries(scene, camera, controls) {
     return boundary;
 }
 
+class MaterialModeManager {
+    constructor() {
+        this.originalMaterials = new Map();
+        this.isMonochromatic = false;
+        this.monochromaticMaterial = null;
+    }
+    
+    createMonochromaticMaterial() {
+        const material = new THREE.MeshStandardMaterial({
+            color: 0xf0f0f0,
+            roughness: 0.9,
+            metalness: 0.0,
+            fog: true
+        });
+        
+        // Apply the same shader modification as other materials
+        material.onBeforeCompile = shaderModifier;
+        
+        return material;
+    }
+    
+    storeMaterialsFromMesh(mesh) {
+        if (!mesh.material || this.originalMaterials.has(mesh.uuid)) return;
+        
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        this.originalMaterials.set(mesh.uuid, {
+            materials: materials.map(m => m),  // Store references, not clones
+            isArray: Array.isArray(mesh.material)
+        });
+    }
+    
+    toggleMonochromatic(scene) {
+        this.isMonochromatic = !this.isMonochromatic;
+        
+        if (!this.monochromaticMaterial) {
+            this.monochromaticMaterial = this.createMonochromaticMaterial();
+        }
+        
+        scene.traverse((child) => {
+            if (child.isMesh && child.material) {
+                // Skip the skybox
+                if (child.geometry?.type === 'SphereGeometry' && 
+                    child.material?.side === THREE.BackSide) {
+                    return;
+                }
+                // Skip wireframe objects
+                if (child.material.wireframe) {
+                    return;
+                }
+                
+                // Store original materials on first run
+                this.storeMaterialsFromMesh(child);
+                
+                const materialData = this.originalMaterials.get(child.uuid);
+                if (!materialData) return;
+                
+                if (this.isMonochromatic) {
+                    // Apply monochromatic material
+                    if (materialData.isArray) {
+                        child.material = new Array(materialData.materials.length).fill(this.monochromaticMaterial);
+                    } else {
+                        child.material = this.monochromaticMaterial;
+                    }
+                } else {
+                    // Restore original materials
+                    child.material = materialData.isArray ? materialData.materials : materialData.materials[0];
+                }
+            }
+        });
+    }
+}
+
 function main() {
     setupCustomFogShaders();
 
@@ -1000,95 +1079,23 @@ function main() {
     let moveLeft = false;
     let moveRight = false;
 
+    let rotateLeft = false;
+    let rotateRight = false;
+    let rotationVelocity = 0;
+
     let isGUIMode = false;
     let guiFocused = false;
 
     let cameraEuler = new Euler(0, 0, 0, 'YXZ');
-
-    const testAudio = new Audio('../public/audio/eastsideTheatre1.mp3');
-    testAudio.addEventListener('canplay', () => console.log('File is playable'));
-    testAudio.addEventListener('error', (e) => console.error('File error:', e));
-
-    let cameraBoundarySystem;
-    let prevTime = performance.now();
-    const velocity = new THREE.Vector3();
-    const direction = new THREE.Vector3();
-
-    // Loading UI setup
-    const loadingDiv = document.createElement('div');
-    loadingDiv.style.position = 'absolute';
-    loadingDiv.style.top = '50%';
-    loadingDiv.style.left = '50%';
-    loadingDiv.style.transform = 'translate(-50%, -50%)';
-    loadingDiv.style.padding = '20px';
-    loadingDiv.style.background = 'rgba(0,0,0,0.7)';
-    loadingDiv.style.color = 'white';
-    loadingDiv.style.borderRadius = '5px';
-    loadingDiv.style.zIndex = '1000';
-    loadingDiv.textContent = 'Loading model (0%)...';
-    document.body.appendChild(loadingDiv);
-
-    const blocker = document.getElementById('blocker');
-    const instructions = document.getElementById('instructions');
-    let instructionsActive = true;
-
-    // Camera setup
-    const fov = 55;
-    const aspect = 2;
-    const near = 0.1;
-    const far = 650;
-    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-    camera.position.set(-53.35, 32, 4.64);
-
-    const scene = new THREE.Scene();
-    const gui = new GUI({ title: 'Settings' });
-    gui.close();
-    
-    const debugFolder = gui.addFolder('Debug Visuals');
-    const debugSettings = {
-        showBoundaryBox: false,
-        showPopupCircles: false,
-        
-        toggleBoundaryBox: function() {
-            if (this.showBoundaryBox) {
-                cameraBoundarySystem.createVisualization(scene);
-            } else {
-                if (cameraBoundarySystem.boundaryBox) {
-                    scene.remove(cameraBoundarySystem.boundaryBox);
-                }
-            }
-        },
-        
-        togglePopupCircles: function() {
-            if (this.showPopupCircles) {
-                theaterSphere.createSphereRadius(scene);
-                cleanersSphere.createSphereRadius(scene);
-                dominosSphere.createSphereRadius(scene);
-                recordsSphere.createSphereRadius(scene);
-            } else {
-                scene.remove(theaterSphere.circleObject);
-                scene.remove(cleanersSphere.circleObject);
-                scene.remove(dominosSphere.circleObject);
-                scene.remove(recordsSphere.circleObject);
-            }
-        }
-    };
-
-    debugFolder.add(debugSettings, 'showBoundaryBox')
-        .name('Show Boundary Box')
-        .onChange(() => debugSettings.toggleBoundaryBox());
-        
-    debugFolder.add(debugSettings, 'showPopupCircles')
-        .name('Show Popup Circles')
-        .onChange(() => debugSettings.togglePopupCircles());
-
-    setupCarouselGUI(gui);
 
     const PopupManager = {
         overlay: document.getElementById('popup'),
         container: document.querySelector('.popup-container'),
         title: document.getElementById('popup-title'),
         content: document.getElementById('popup-content'),
+
+        loadingPopupActive: false,
+        currentTab: 'instructions',
         
         popUpActive: false,
         currentImageIndex: 0,
@@ -1104,6 +1111,8 @@ function main() {
         tiffCache: new Map(),
 
         audio: new Audio(),
+
+        
         
         async init() {
             try {
@@ -1594,8 +1603,330 @@ function main() {
             }
             
             this.show(locationData.title, content);
+        },
+        switchTab: function(tabName) {
+                this.currentTab = tabName;
+                
+                // Update tab buttons
+                const tabs = document.querySelectorAll('.popup-tab');
+                tabs.forEach(tab => {
+                    tab.classList.toggle('active', tab.dataset.tab === tabName);
+                });
+                
+                // Update tab content
+                const contents = document.querySelectorAll('.popup-tab-content');
+                contents.forEach(content => {
+                    content.classList.toggle('active', content.dataset.tab === tabName);
+                });
+            },
+
+            showLoadingPopup: function() {
+                this.loadingPopupActive = true;
+                
+                const loadingContent = `
+                    <div class="popup-tabs">
+                        <button class="popup-tab active" data-tab="instructions" onclick="PopupManager.switchTab('instructions')">
+                            Instructions
+                        </button>
+                        <button class="popup-tab" data-tab="history" onclick="PopupManager.switchTab('history')">
+                            History
+                        </button>
+                        <button class="popup-tab" data-tab="credits" onclick="PopupManager.switchTab('credits')">
+                            Credits
+                        </button>
+                    </div>
+                    
+                    <div class="loading-progress">
+                        <div>Loading Virtual Fairgrounds Model...</div>
+                        <div class="loading-bar">
+                            <div class="loading-bar-fill" id="loading-bar-fill"></div>
+                        </div>
+                        <div class="loading-percentage" id="loading-percentage">0%</div>
+                    </div>
+                    
+                    <div class="popup-tab-content active" data-tab="instructions">
+                        <h3>How to Navigate the Virtual Fairgrounds</h3>
+                        <p><strong>Movement Controls:</strong></p>
+                        <ul style="line-height: 1.8;">
+                            <li><strong>W, A, S, D</strong> or <strong>Arrow Keys</strong> - Move forward, left, backward, and right</li>
+                            <li><strong>Mouse</strong> - Look around and change your view direction</li>
+                            <li><strong>Q & E</strong> - Rotate camera when in GUI mode</li>
+                            <li><strong>F</strong> - Interact with locations when you see the prompt</li>
+                            <li><strong>ESC</strong> - Pause and show menu</li>
+                            <li><strong>M</strong> - Toggle monochromatic mode</li>
+                            <li><strong>Middle Mouse Button</strong> - Toggle GUI mode for settings</li>
+                        </ul>
+                        
+                        <p><strong>Exploration Tips:</strong></p>
+                        <ul style="line-height: 1.8;">
+                            <li>Look for the green interaction prompts near historic buildings</li>
+                            <li>Stay within the green boundary markers</li>
+                            <li>Visit the East Side Theater ticket booth to learn more about the neighborhood</li>
+                            <li>Each location has historical photos and audio recordings to discover</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="popup-tab-content" data-tab="history">
+                        <h3>The Fairgrounds Neighborhood (1955)</h3>
+                        <p>Welcome to a digital recreation of Oklahoma City's historic Fairgrounds District, a vibrant African American community that thrived in the mid-20th century.</p>
+                        
+                        <p><strong>About the Neighborhood:</strong></p>
+                        <p>The Fairgrounds neighborhood, also known as part of Deep Deuce, was bounded by NE 8th Street to the north and the Rock Island railroad tracks to the south. This densely populated area was home to a thriving Black community, with Bath Avenue serving as its commercial heart.</p>
+                        
+                        <p><strong>Key Locations You'll Explore:</strong></p>
+                        <ul style="line-height: 1.8;">
+                            <li><strong>East Side Theater (720-722 Bath Avenue)</strong> - The crown jewel of the district, opened in 1946</li>
+                            <li><strong>Bill's Cleaners (718 Bath)</strong> - A long-running business that operated until 1973</li>
+                            <li><strong>Domino Parlor (714 Bath)</strong> - A popular social gathering spot for men</li>
+                            <li><strong>Melody Records (710B Bath)</strong> - The heart of the local music scene</li>
+                        </ul>
+                        
+                        <p><strong>Urban Renewal Impact:</strong></p>
+                        <p>This virtual preservation captures the neighborhood before urban renewal programs of the 1960s-70s led to widespread demolition. Today, this 3D environment serves as a bridge between past and present, preserving the memories and stories of a community that was physically erased but lives on in the hearts of those who remember.</p>
+                    </div>
+                    
+                    <div class="popup-tab-content" data-tab="credits">
+                        <h3>Virtual Fairgrounds Project Credits</h3>
+                        
+                        <p><strong>A Collaboration Between:</strong></p>
+                        <ul style="line-height: 1.8;">
+                            <li>Metropolitan Library System</li>
+                            <li>Drone's Eye View (DEV) Limited</li>
+                        </ul>
+                        
+                        <p><strong>Project Team:</strong></p>
+                        <ul style="line-height: 1.8;">
+                            <li><strong>Bobby Reed</strong> - Lead Developer & Technical Director</li>
+                            <li><strong>Judith Matthews</strong> - Project Visionary & Historical Consultant</li>
+                            <li><strong>Metropolitan Library System Special Collections</strong> - Archival Materials</li>
+                        </ul>
+                        
+                        <p><strong>Special Thanks To:</strong></p>
+                        <p>Sandra Richards, JW Sanford and family, Avis Franklin, Melba Holt, Kimberly Francisco, Kasey Jones-Matrona, George Melvin Richardson and family, Eloise Carbajal, Hobert Sutton, Huretta Walker Dobbs, Anita Arnold, Melva Franklin, and all the families, business owners, and patrons of the Fairgrounds Neighborhood.</p>
+                        
+                        <p><strong>Student Contributors:</strong></p>
+                        <ul style="line-height: 1.8;">
+                            <li><strong>xDarthx</strong> - Summer 2025 Intern</li>
+                            <li>Oklahoma City University Software Engineering Students</li>
+                        </ul>
+                        
+                        <p><strong>Technical Framework:</strong></p>
+                        <p>Built with Three.js, WebGL, and modern web technologies to ensure preservation and accessibility for future generations.</p>
+                        
+                        <p style="margin-top: 20px; font-style: italic; text-align: center;">
+                            "Preserving Oklahoma City's cultural heritage through immersive technology"
+                        </p>
+                    </div>
+                `;
+                
+                // Modify the overlay to add loading-popup class
+                this.overlay.classList.add('loading-popup');
+                
+                // Don't allow closing during loading
+                const originalCloseBtn = document.getElementById('popup-close-btn');
+                if (originalCloseBtn) {
+                    originalCloseBtn.style.display = 'none';
+                }
+                
+                // Update header for loading popup
+                this.show('Virtual Fairgrounds', loadingContent);
+                
+                // Add subtitle to header
+                const header = document.querySelector('.popup-header');
+                if (header && !header.querySelector('.popup-subtitle')) {
+                    const subtitle = document.createElement('p');
+                    subtitle.className = 'popup-subtitle';
+                    subtitle.textContent = 'Preserving Oklahoma City\'s Historic Fairgrounds Neighborhood';
+                    header.appendChild(subtitle);
+                }
+            },
+
+            // Add this method to update loading progress
+            updateLoadingProgress: function(percentage) {
+                const fillBar = document.getElementById('loading-bar-fill');
+                const percentText = document.getElementById('loading-percentage');
+                
+                if (fillBar) {
+                    fillBar.style.width = percentage + '%';
+                }
+                if (percentText) {
+                    percentText.textContent = percentage + '%';
+                }
+            },
+
+            // Add this method to hide loading popup
+            hideLoadingPopup: function() {
+                this.loadingPopupActive = false;
+                this.overlay.classList.remove('loading-popup');
+                
+                // Restore close button
+                const closeBtn = document.getElementById('popup-close-btn');
+                if (closeBtn) {
+                    closeBtn.style.display = '';
+                }
+                
+                this.hide();
+            }
+    };
+    PopupManager.init().catch(console.error);
+
+    PopupManager.showLoadingPopup();
+
+    const materialModeManager = new MaterialModeManager();
+
+    const testAudio = new Audio('../public/audio/eastsideTheatre1.mp3');
+    testAudio.addEventListener('canplay', () => console.log('File is playable'));
+    testAudio.addEventListener('error', (e) => console.error('File error:', e));
+
+    let cameraBoundarySystem;
+    let prevTime = performance.now();
+    const velocity = new THREE.Vector3();
+    const direction = new THREE.Vector3();
+
+    // Loading UI setup
+    // const loadingDiv = document.createElement('div');
+    // loadingDiv.style.position = 'absolute';
+    // loadingDiv.style.top = '50%';
+    // loadingDiv.style.left = '50%';
+    // loadingDiv.style.transform = 'translate(-50%, -50%)';
+    // loadingDiv.style.padding = '20px';
+    // loadingDiv.style.background = 'rgba(0,0,0,0.7)';
+    // loadingDiv.style.color = 'white';
+    // loadingDiv.style.borderRadius = '5px';
+    // loadingDiv.style.zIndex = '1000';
+    // loadingDiv.textContent = 'Loading model (0%)...';
+    // document.body.appendChild(loadingDiv);
+    PopupManager.showLoadingPopup();
+
+    const blocker = document.getElementById('blocker');
+    const instructions = document.getElementById('instructions');
+    let instructionsActive = true;
+
+    // Camera setup
+    const fov = 55;
+    const aspect = 2;
+    const near = 0.1;
+    const far = 650;
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+    camera.position.set(-53.35, 32, 4.64);
+
+    const scene = new THREE.Scene();
+    const gui = new GUI({ title: 'Settings' });
+    gui.close();
+    
+    const debugFolder = gui.addFolder('Debug Visuals');
+    const debugSettings = {
+        showBoundaryBox: false,
+        showPopupCircles: false,
+        
+        toggleBoundaryBox: function() {
+            if (this.showBoundaryBox) {
+                cameraBoundarySystem.createVisualization(scene);
+            } else {
+                if (cameraBoundarySystem.boundaryBox) {
+                    scene.remove(cameraBoundarySystem.boundaryBox);
+                }
+            }
+        },
+        
+        togglePopupCircles: function() {
+            if (this.showPopupCircles) {
+                theaterSphere.createSphereRadius(scene);
+                cleanersSphere.createSphereRadius(scene);
+                dominosSphere.createSphereRadius(scene);
+                recordsSphere.createSphereRadius(scene);
+            } else {
+                scene.remove(theaterSphere.circleObject);
+                scene.remove(cleanersSphere.circleObject);
+                scene.remove(dominosSphere.circleObject);
+                scene.remove(recordsSphere.circleObject);
+            }
         }
     };
+
+    debugFolder.add(debugSettings, 'showBoundaryBox')
+        .name('Show Boundary Box')
+        .onChange(() => debugSettings.toggleBoundaryBox());
+        
+    debugFolder.add(debugSettings, 'showPopupCircles')
+        .name('Show Popup Circles')
+        .onChange(() => debugSettings.togglePopupCircles());
+
+
+    const visualizationFolder = gui.addFolder('Visualization Modes');
+    const visualizationSettings = {
+        monochromaticMode: true,
+        brightness: 0.95,
+
+        toggleMonochromatic() {
+            materialModeManager.toggleMonochromatic(scene);
+            
+            // Adjust lighting for monochromatic mode
+            if (materialModeManager.isMonochromatic) {
+                scene.children.forEach(child => {
+                    if (child.isHemisphereLight) {
+                        child.intensity = 3.5;
+                    } else if (child.isDirectionalLight) {
+                        child.intensity = 2.5;
+                    }
+                });
+                scene.fog.density = 0.003;
+            } else {
+                scene.children.forEach(child => {
+                    if (child.isHemisphereLight) {
+                        child.intensity = 2;
+                    } else if (child.isDirectionalLight) {
+                        child.intensity = 5;
+                    }
+                });
+                scene.fog.density = 0.005;
+            }
+            
+            // Update LOD materials if they exist
+            if (window.cullingLODManager) {
+                window.cullingLODManager.objectCache.forEach((lodData) => {
+                    const meshes = lodData.meshes;
+                    for (const level in meshes) {
+                        if (meshes[level]) {
+                            materialModeManager.storeMaterialsFromMesh(meshes[level]);
+                            
+                            const materialData = materialModeManager.originalMaterials.get(meshes[level].uuid);
+                            if (materialData) {
+                                if (materialModeManager.isMonochromatic) {
+                                    meshes[level].material = materialData.isArray 
+                                        ? new Array(materialData.materials.length).fill(materialModeManager.monochromaticMaterial)
+                                        : materialModeManager.monochromaticMaterial;
+                                } else {
+                                    meshes[level].material = materialData.isArray 
+                                        ? materialData.materials 
+                                        : materialData.materials[0];
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        },
+        
+        adjustBrightness: function() {
+            if (materialModeManager.isMonochromatic && materialModeManager.monochromaticMaterial) {
+                const brightness = this.brightness;
+                const baseColor = 0.5 + (brightness * 0.5);
+                materialModeManager.monochromaticMaterial.color.setRGB(baseColor, baseColor, baseColor);
+            }
+        }
+    };
+
+    visualizationFolder.add(visualizationSettings, 'monochromaticMode')
+        .name('Monochromatic Mode')
+        .onChange(() => visualizationSettings.toggleMonochromatic());
+
+    visualizationFolder.add(visualizationSettings, 'brightness', 0.5, 1.0, 0.05)
+        .name('Brightness')
+        .onChange(() => visualizationSettings.adjustBrightness());
+
+
+    setupCarouselGUI(gui);
 
     // Initialize popup manager
     PopupManager.init().catch(console.error);
@@ -1783,7 +2114,7 @@ function main() {
 
     // Close popup listener
     document.getElementById('popup').addEventListener('click', function (e) {
-        if (e.target === this) {
+        if (e.target === this && !PopupManager.loadingPopupActive) {
             closePopup();
             controls.lock();
             PopupManager.popUpActive = false;
@@ -1792,7 +2123,7 @@ function main() {
 
     // The X on the popup listener
     document.getElementById('popup-close-btn').addEventListener('click', function (e) {
-        if (e.target === this) {
+        if (e.target === this && !PopupManager.loadingPopupActive) {
             closePopup();
             controls.lock();
             PopupManager.popUpActive = false;
@@ -1944,7 +2275,6 @@ function main() {
             case 'KeyW':
                 moveForward = true;
                 break;
-            case 'ArrowLeft':
             case 'KeyA':
                 moveLeft = true;
                 break;
@@ -1952,13 +2282,27 @@ function main() {
             case 'KeyS':
                 moveBackward = true;
                 break;
-            case 'ArrowRight':
             case 'KeyD':
                 moveRight = true;
+                break;
+            case 'KeyE':
+            case 'ArrowRight':
+                if (isGUIMode) rotateLeft = true;
+                break;
+            case 'KeyQ':
+            case 'ArrowLeft':
+                if (isGUIMode) rotateRight = true;
+                break;
+            case 'KeyM':
+                if (!guiFocused && !PopupManager.popUpActive) {
+                    visualizationSettings.monochromaticMode = !visualizationSettings.monochromaticMode;
+                    visualizationSettings.toggleMonochromatic();
+                }
                 break;
         }
     };
 
+    /*
     const rotateTheCamera = function (event) {
         if (guiFocused) return;
 
@@ -1976,6 +2320,7 @@ function main() {
                 break;
         }
     }
+        */
     const onKeyUp = function (event) {
 
         switch (event.code) {
@@ -1995,12 +2340,20 @@ function main() {
             case 'KeyD':
                 moveRight = false;
                 break;
+            case 'KeyQ':
+            case 'ArrowLeft':
+                rotateLeft = false;
+                break;
+            case 'KeyE':
+            case 'ArrowRight':
+                rotateRight = false;
+                break;
         }
     };
 
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
-    document.addEventListener('keydown', rotateTheCamera);
+    //document.addEventListener('keydown', rotateTheCamera);
 
     document.addEventListener('mousedown', (event) => {
         if (event.button === 1) {
@@ -2295,6 +2648,18 @@ function main() {
             }
         }
     };
+    //monochromatic filter
+    skyboxController.applyMonochromaticFilter = function() {
+        if (skySphereMesh && materialModeManager.isMonochromatic) {
+            // Create a desaturated version of the skybox
+            const monoSkyMaterial = new THREE.MeshBasicMaterial({
+                color: 0xe8e8e8,
+                side: THREE.BackSide,
+                fog: false
+            });
+            skySphereMesh.material = monoSkyMaterial;
+        }
+    };
 
     // Separate function to set up the GUI control after the skybox is loaded
     function setupSkyboxGUI() {
@@ -2358,49 +2723,70 @@ function main() {
             baseURL + 'fairgrounds.glb',
             (glb) => {
                 try {
-                    loadingDiv.style.display = 'none';
-                    const root = glb.scene;
+                // Hide the loading popup
+                PopupManager.hideLoadingPopup();
+                
+                const root = glb.scene;
 
                     const updateTextureQuality = setupOptimizedTextureSystem(root, scene, camera);
                     window.updateTextureQuality = updateTextureQuality;
 
                     window.cullingLODManager.injectIntoGLTFScene(root, lodControls);
                     scene.add(root);
+                    
+                    // Apply monochromatic mode after model loads if it's enabled
+                    if (visualizationSettings.monochromaticMode) {
+                        // Delay to ensure everything is initialized
+                        setTimeout(() => {
+                            materialModeManager.toggleMonochromatic(scene);
+                            // Update lighting
+                            scene.children.forEach(child => {
+                                if (child.isHemisphereLight) {
+                                    child.intensity = 3.5;
+                                } else if (child.isDirectionalLight) {
+                                    child.intensity = 2.5;
+                                }
+                            });
+                            scene.fog.density = 0.003;
+                        }, 100);
+                    }
+                    
                     console.log(dumpObject(root).join('\n'));
-
                     setupBoundaries();
                     blocker.style.display = '';
                     instructions.style.display = '';
-
                     dracoLoader.dispose();
-
                 } catch (error) {
-                    console.error('Error processing loaded model:', error);
-                    loadingDiv.textContent = 'Error processing model. Check console for details.';
-                    loadingDiv.style.background = 'rgba(255,0,0,0.7)';
-
+                        console.error('Error processing loaded model:', error);
+                        // Update the loading popup to show error
+                        const progressDiv = document.querySelector('.loading-progress');
+                        if (progressDiv) {
+                            progressDiv.innerHTML = '<div style="color: #d32f2f;">Error loading model. Please refresh the page.</div>';
+                        }
+                        dracoLoader.dispose();
+                    }
+                },
+                (xhr) => {
+                    if (xhr.lengthComputable) {
+                        const percentComplete = Math.round((xhr.loaded / xhr.total) * 100);
+                        PopupManager.updateLoadingProgress(percentComplete);
+                        
+                        if (blocker.style.display === '' && instructions.style.display === '') {
+                            instructions.style.display = 'none';
+                            blocker.style.display = 'none';
+                        }
+                    }
+                },
+                (error) => {
+                    console.error('Error loading model:', error);
+                    // Update the loading popup to show error
+                    const progressDiv = document.querySelector('.loading-progress');
+                    if (progressDiv) {
+                        progressDiv.innerHTML = '<div style="color: #d32f2f;">Error loading model. Please check your connection and refresh.</div>';
+                    }
                     dracoLoader.dispose();
                 }
-            },
-            (xhr) => {
-                if (xhr.lengthComputable) {
-                    const percentComplete = Math.round((xhr.loaded / xhr.total) * 100);
-                    loadingDiv.textContent = `Loading model (${percentComplete}%)...`;
-                    if (blocker.style.display === '' && instructions.style.display === '') {
-                        instructions.style.display = 'none';
-                        blocker.style.display = 'none';
-                    }
-                }
-            },
-            (error) => {
-                loadingDiv.textContent = 'Error loading model. Check console for details.';
-                loadingDiv.style.background = 'rgba(255,0,0,0.7)';
-                console.error('Error loading model:', error);
-
-                dracoLoader.dispose();
-            }
-        );
-
+            );
     }
 
     function resizeRendererToDisplaySize(renderer) {
@@ -2460,6 +2846,23 @@ function main() {
 
                 velocity.x -= velocity.x * 10.0 * delta;
                 velocity.z -= velocity.z * 10.0 * delta;
+
+                rotationVelocity -= rotationVelocity * 10.0 * delta;
+            
+            // Add smooth rotation handling
+            if (rotateLeft && isGUIMode) {
+                rotationVelocity -= 2.0 * delta;  // Adjust speed as needed
+            }
+            if (rotateRight && isGUIMode) {
+                rotationVelocity += 2.0 * delta;  // Adjust speed as needed
+            }
+
+            // Apply rotation
+            if (Math.abs(rotationVelocity) > 0.001) {
+                cameraEuler.setFromQuaternion(camera.quaternion);
+                cameraEuler.y += rotationVelocity * delta;
+                camera.quaternion.setFromEuler(cameraEuler);
+            }
 
                 direction.z = Number(moveForward) - Number(moveBackward);
                 direction.x = Number(moveRight) - Number(moveLeft);
