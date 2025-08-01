@@ -1088,162 +1088,6 @@ function main() {
 
     let cameraEuler = new Euler(0, 0, 0, 'YXZ');
 
-    const materialModeManager = new MaterialModeManager();
-
-    const testAudio = new Audio('../public/audio/eastsideTheatre1.mp3');
-    testAudio.addEventListener('canplay', () => console.log('File is playable'));
-    testAudio.addEventListener('error', (e) => console.error('File error:', e));
-
-    let cameraBoundarySystem;
-    let prevTime = performance.now();
-    const velocity = new THREE.Vector3();
-    const direction = new THREE.Vector3();
-
-    // Loading UI setup
-    // const loadingDiv = document.createElement('div');
-    // loadingDiv.style.position = 'absolute';
-    // loadingDiv.style.top = '50%';
-    // loadingDiv.style.left = '50%';
-    // loadingDiv.style.transform = 'translate(-50%, -50%)';
-    // loadingDiv.style.padding = '20px';
-    // loadingDiv.style.background = 'rgba(0,0,0,0.7)';
-    // loadingDiv.style.color = 'white';
-    // loadingDiv.style.borderRadius = '5px';
-    // loadingDiv.style.zIndex = '1000';
-    // loadingDiv.textContent = 'Loading model (0%)...';
-    // document.body.appendChild(loadingDiv);
-    PopupManager.showLoadingPopup();
-
-    const blocker = document.getElementById('blocker');
-    const instructions = document.getElementById('instructions');
-    let instructionsActive = true;
-
-    // Camera setup
-    const fov = 55;
-    const aspect = 2;
-    const near = 0.1;
-    const far = 650;
-    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-    camera.position.set(-53.35, 32, 4.64);
-
-    const scene = new THREE.Scene();
-    const gui = new GUI({ title: 'Settings' });
-    gui.close();
-    
-    const debugFolder = gui.addFolder('Debug Visuals');
-    const debugSettings = {
-        showBoundaryBox: false,
-        showPopupCircles: false,
-        
-        toggleBoundaryBox: function() {
-            if (this.showBoundaryBox) {
-                cameraBoundarySystem.createVisualization(scene);
-            } else {
-                if (cameraBoundarySystem.boundaryBox) {
-                    scene.remove(cameraBoundarySystem.boundaryBox);
-                }
-            }
-        },
-        
-        togglePopupCircles: function() {
-            if (this.showPopupCircles) {
-                theaterSphere.createSphereRadius(scene);
-                cleanersSphere.createSphereRadius(scene);
-                dominosSphere.createSphereRadius(scene);
-                recordsSphere.createSphereRadius(scene);
-            } else {
-                scene.remove(theaterSphere.circleObject);
-                scene.remove(cleanersSphere.circleObject);
-                scene.remove(dominosSphere.circleObject);
-                scene.remove(recordsSphere.circleObject);
-            }
-        }
-    };
-
-    debugFolder.add(debugSettings, 'showBoundaryBox')
-        .name('Show Boundary Box')
-        .onChange(() => debugSettings.toggleBoundaryBox());
-        
-    debugFolder.add(debugSettings, 'showPopupCircles')
-        .name('Show Popup Circles')
-        .onChange(() => debugSettings.togglePopupCircles());
-
-
-    const visualizationFolder = gui.addFolder('Visualization Modes');
-    const visualizationSettings = {
-        monochromaticMode: true,
-        brightness: 0.95,
-
-        toggleMonochromatic() {
-            materialModeManager.toggleMonochromatic(scene);
-            
-            // Adjust lighting for monochromatic mode
-            if (materialModeManager.isMonochromatic) {
-                scene.children.forEach(child => {
-                    if (child.isHemisphereLight) {
-                        child.intensity = 3.5;
-                    } else if (child.isDirectionalLight) {
-                        child.intensity = 2.5;
-                    }
-                });
-                scene.fog.density = 0.003;
-            } else {
-                scene.children.forEach(child => {
-                    if (child.isHemisphereLight) {
-                        child.intensity = 2;
-                    } else if (child.isDirectionalLight) {
-                        child.intensity = 5;
-                    }
-                });
-                scene.fog.density = 0.005;
-            }
-            
-            // Update LOD materials if they exist
-            if (window.cullingLODManager) {
-                window.cullingLODManager.objectCache.forEach((lodData) => {
-                    const meshes = lodData.meshes;
-                    for (const level in meshes) {
-                        if (meshes[level]) {
-                            materialModeManager.storeMaterialsFromMesh(meshes[level]);
-                            
-                            const materialData = materialModeManager.originalMaterials.get(meshes[level].uuid);
-                            if (materialData) {
-                                if (materialModeManager.isMonochromatic) {
-                                    meshes[level].material = materialData.isArray 
-                                        ? new Array(materialData.materials.length).fill(materialModeManager.monochromaticMaterial)
-                                        : materialModeManager.monochromaticMaterial;
-                                } else {
-                                    meshes[level].material = materialData.isArray 
-                                        ? materialData.materials 
-                                        : materialData.materials[0];
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-        },
-        
-        adjustBrightness: function() {
-            if (materialModeManager.isMonochromatic && materialModeManager.monochromaticMaterial) {
-                const brightness = this.brightness;
-                const baseColor = 0.5 + (brightness * 0.5);
-                materialModeManager.monochromaticMaterial.color.setRGB(baseColor, baseColor, baseColor);
-            }
-        }
-    };
-
-    visualizationFolder.add(visualizationSettings, 'monochromaticMode')
-        .name('Monochromatic Mode')
-        .onChange(() => visualizationSettings.toggleMonochromatic());
-
-    visualizationFolder.add(visualizationSettings, 'brightness', 0.5, 1.0, 0.05)
-        .name('Brightness')
-        .onChange(() => visualizationSettings.adjustBrightness());
-
-
-    setupCarouselGUI(gui);
-
     const PopupManager = {
         overlay: document.getElementById('popup'),
         container: document.querySelector('.popup-container'),
@@ -1759,62 +1603,8 @@ function main() {
             }
             
             this.show(locationData.title, content);
-        }
-    };
-
-    // Initialize popup manager
-    PopupManager.init().catch(console.error);
-
-    // GUI Controls for the carousel (place this INSIDE main() after PopupManager)
-    function setupCarouselGUI(gui) {
-        const carouselFolder = gui.addFolder('Carousel Controls');
-        
-        const carouselSettings = {
-            autoplay: false,
-            autoplayDuration: 3,
-            showThumbnails: false,
-            transitionType: 'fade',
-            
-            toggleAutoplay: function() {
-                PopupManager.autoplayEnabled = this.autoplay;
-                if (PopupManager.popUpActive) {
-                    if (this.autoplay) {
-                        PopupManager.startAutoplay();
-                    } else {
-                        PopupManager.stopAutoplay();
-                    }
-                }
-            },
-            
-            updateAutoplaySpeed: function() {
-                PopupManager.autoplayDuration = this.autoplayDuration * 1000;
-                if (PopupManager.autoplayEnabled && PopupManager.popUpActive) {
-                    PopupManager.startAutoplay();
-                }
-            },
-            
-            toggleThumbnails: function() {
-                PopupManager.showThumbnails = this.showThumbnails;
-                if (PopupManager.popUpActive) {
-                    PopupManager.setupThumbnails();
-                }
-            },
-            
-            updateTransition: function() {
-                PopupManager.transitionType = this.transitionType;
-                const container = document.querySelector('.carousel-container');
-                if (container) {
-                    container.classList.toggle('slide-transition', this.transitionType === 'slide');
-                }
-            },
-            
-            reloadManifest: async function() {
-                await PopupManager.init();
-                console.log('Image manifest reloaded');
-                alert('Image manifest reloaded successfully!');
-            },
-            
-            switchTab: function(tabName) {
+        },
+        switchTab: function(tabName) {
                 this.currentTab = tabName;
                 
                 // Update tab buttons
@@ -1830,7 +1620,6 @@ function main() {
                 });
             },
 
-            // Add this method to show the loading popup
             showLoadingPopup: function() {
                 this.loadingPopupActive = true;
                 
@@ -1977,6 +1766,218 @@ function main() {
                 }
                 
                 this.hide();
+            }
+    };
+    PopupManager.init().catch(console.error);
+
+    PopupManager.showLoadingPopup();
+
+    const materialModeManager = new MaterialModeManager();
+
+    const testAudio = new Audio('../public/audio/eastsideTheatre1.mp3');
+    testAudio.addEventListener('canplay', () => console.log('File is playable'));
+    testAudio.addEventListener('error', (e) => console.error('File error:', e));
+
+    let cameraBoundarySystem;
+    let prevTime = performance.now();
+    const velocity = new THREE.Vector3();
+    const direction = new THREE.Vector3();
+
+    // Loading UI setup
+    // const loadingDiv = document.createElement('div');
+    // loadingDiv.style.position = 'absolute';
+    // loadingDiv.style.top = '50%';
+    // loadingDiv.style.left = '50%';
+    // loadingDiv.style.transform = 'translate(-50%, -50%)';
+    // loadingDiv.style.padding = '20px';
+    // loadingDiv.style.background = 'rgba(0,0,0,0.7)';
+    // loadingDiv.style.color = 'white';
+    // loadingDiv.style.borderRadius = '5px';
+    // loadingDiv.style.zIndex = '1000';
+    // loadingDiv.textContent = 'Loading model (0%)...';
+    // document.body.appendChild(loadingDiv);
+    PopupManager.showLoadingPopup();
+
+    const blocker = document.getElementById('blocker');
+    const instructions = document.getElementById('instructions');
+    let instructionsActive = true;
+
+    // Camera setup
+    const fov = 55;
+    const aspect = 2;
+    const near = 0.1;
+    const far = 650;
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+    camera.position.set(-53.35, 32, 4.64);
+
+    const scene = new THREE.Scene();
+    const gui = new GUI({ title: 'Settings' });
+    gui.close();
+    
+    const debugFolder = gui.addFolder('Debug Visuals');
+    const debugSettings = {
+        showBoundaryBox: false,
+        showPopupCircles: false,
+        
+        toggleBoundaryBox: function() {
+            if (this.showBoundaryBox) {
+                cameraBoundarySystem.createVisualization(scene);
+            } else {
+                if (cameraBoundarySystem.boundaryBox) {
+                    scene.remove(cameraBoundarySystem.boundaryBox);
+                }
+            }
+        },
+        
+        togglePopupCircles: function() {
+            if (this.showPopupCircles) {
+                theaterSphere.createSphereRadius(scene);
+                cleanersSphere.createSphereRadius(scene);
+                dominosSphere.createSphereRadius(scene);
+                recordsSphere.createSphereRadius(scene);
+            } else {
+                scene.remove(theaterSphere.circleObject);
+                scene.remove(cleanersSphere.circleObject);
+                scene.remove(dominosSphere.circleObject);
+                scene.remove(recordsSphere.circleObject);
+            }
+        }
+    };
+
+    debugFolder.add(debugSettings, 'showBoundaryBox')
+        .name('Show Boundary Box')
+        .onChange(() => debugSettings.toggleBoundaryBox());
+        
+    debugFolder.add(debugSettings, 'showPopupCircles')
+        .name('Show Popup Circles')
+        .onChange(() => debugSettings.togglePopupCircles());
+
+
+    const visualizationFolder = gui.addFolder('Visualization Modes');
+    const visualizationSettings = {
+        monochromaticMode: true,
+        brightness: 0.95,
+
+        toggleMonochromatic() {
+            materialModeManager.toggleMonochromatic(scene);
+            
+            // Adjust lighting for monochromatic mode
+            if (materialModeManager.isMonochromatic) {
+                scene.children.forEach(child => {
+                    if (child.isHemisphereLight) {
+                        child.intensity = 3.5;
+                    } else if (child.isDirectionalLight) {
+                        child.intensity = 2.5;
+                    }
+                });
+                scene.fog.density = 0.003;
+            } else {
+                scene.children.forEach(child => {
+                    if (child.isHemisphereLight) {
+                        child.intensity = 2;
+                    } else if (child.isDirectionalLight) {
+                        child.intensity = 5;
+                    }
+                });
+                scene.fog.density = 0.005;
+            }
+            
+            // Update LOD materials if they exist
+            if (window.cullingLODManager) {
+                window.cullingLODManager.objectCache.forEach((lodData) => {
+                    const meshes = lodData.meshes;
+                    for (const level in meshes) {
+                        if (meshes[level]) {
+                            materialModeManager.storeMaterialsFromMesh(meshes[level]);
+                            
+                            const materialData = materialModeManager.originalMaterials.get(meshes[level].uuid);
+                            if (materialData) {
+                                if (materialModeManager.isMonochromatic) {
+                                    meshes[level].material = materialData.isArray 
+                                        ? new Array(materialData.materials.length).fill(materialModeManager.monochromaticMaterial)
+                                        : materialModeManager.monochromaticMaterial;
+                                } else {
+                                    meshes[level].material = materialData.isArray 
+                                        ? materialData.materials 
+                                        : materialData.materials[0];
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        },
+        
+        adjustBrightness: function() {
+            if (materialModeManager.isMonochromatic && materialModeManager.monochromaticMaterial) {
+                const brightness = this.brightness;
+                const baseColor = 0.5 + (brightness * 0.5);
+                materialModeManager.monochromaticMaterial.color.setRGB(baseColor, baseColor, baseColor);
+            }
+        }
+    };
+
+    visualizationFolder.add(visualizationSettings, 'monochromaticMode')
+        .name('Monochromatic Mode')
+        .onChange(() => visualizationSettings.toggleMonochromatic());
+
+    visualizationFolder.add(visualizationSettings, 'brightness', 0.5, 1.0, 0.05)
+        .name('Brightness')
+        .onChange(() => visualizationSettings.adjustBrightness());
+
+
+    setupCarouselGUI(gui);
+
+    // Initialize popup manager
+    PopupManager.init().catch(console.error);
+
+    // GUI Controls for the carousel (place this INSIDE main() after PopupManager)
+    function setupCarouselGUI(gui) {
+        const carouselFolder = gui.addFolder('Carousel Controls');
+        
+        const carouselSettings = {
+            autoplay: false,
+            autoplayDuration: 3,
+            showThumbnails: false,
+            transitionType: 'fade',
+            
+            toggleAutoplay: function() {
+                PopupManager.autoplayEnabled = this.autoplay;
+                if (PopupManager.popUpActive) {
+                    if (this.autoplay) {
+                        PopupManager.startAutoplay();
+                    } else {
+                        PopupManager.stopAutoplay();
+                    }
+                }
+            },
+            
+            updateAutoplaySpeed: function() {
+                PopupManager.autoplayDuration = this.autoplayDuration * 1000;
+                if (PopupManager.autoplayEnabled && PopupManager.popUpActive) {
+                    PopupManager.startAutoplay();
+                }
+            },
+            
+            toggleThumbnails: function() {
+                PopupManager.showThumbnails = this.showThumbnails;
+                if (PopupManager.popUpActive) {
+                    PopupManager.setupThumbnails();
+                }
+            },
+            
+            updateTransition: function() {
+                PopupManager.transitionType = this.transitionType;
+                const container = document.querySelector('.carousel-container');
+                if (container) {
+                    container.classList.toggle('slide-transition', this.transitionType === 'slide');
+                }
+            },
+            
+            reloadManifest: async function() {
+                await PopupManager.init();
+                console.log('Image manifest reloaded');
+                alert('Image manifest reloaded successfully!');
             },
             
             checkTiffSupport: function() {
