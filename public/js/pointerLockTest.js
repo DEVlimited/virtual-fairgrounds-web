@@ -201,21 +201,6 @@ class AdvancedCullingLODManager {
         this.trackedShaders = [];
     }
 
-    updateMaterialMode(materialModeManager) {
-    if (!materialModeManager) return;
-    
-    // Store original materials for LOD meshes if needed
-    this.objectCache.forEach((lodData) => {
-        const meshes = lodData.meshes;
-        for (const level in meshes) {
-            if (meshes[level] && meshes[level].material) {
-                materialModeManager.storeMaterialsFromMesh(meshes[level]);
-                materialModeManager.applyToMesh(meshes[level], materialModeManager.isMonochromatic);
-            }
-        }
-    });
-    }
-
     registerObjectGroupFromGLTF(originalMesh, lodOptions = {}) {
         const baseName = originalMesh.name;
 
@@ -1012,115 +997,40 @@ class MaterialModeManager {
     constructor() {
         this.originalMaterials = new Map();
         this.isMonochromatic = false;
-        this.monochromaticMaterials = new Map(); // Cache for different material types
-        this.shaderModifier = null;
+        this.monochromaticMaterial = null;
     }
     
-    setShaderModifier(modifierFunc) {
-        this.shaderModifier = modifierFunc;
-    }
-    
-    createMonochromaticMaterial(originalMaterial = null) {
-        // Determine the appropriate monochromatic material type
-        let monoMaterial;
+    createMonochromaticMaterial() {
+        const material = new THREE.MeshStandardMaterial({
+            color: 0xf0f0f0,
+            roughness: 0.9,
+            metalness: 0.0,
+            fog: true
+        });
         
-        if (!originalMaterial || originalMaterial.isMeshBasicMaterial) {
-            monoMaterial = new THREE.MeshBasicMaterial({
-                color: 0xf0f0f0,
-                fog: true
-            });
-        } else if (originalMaterial.isMeshLambertMaterial) {
-            monoMaterial = new THREE.MeshLambertMaterial({
-                color: 0xf5f5f5,
-                fog: true
-            });
-        } else {
-            // Default to MeshStandardMaterial for better lighting
-            monoMaterial = new THREE.MeshStandardMaterial({
-                color: 0xf8f8f8,
-                roughness: 0.85,
-                metalness: 0.0,
-                fog: true
-            });
-        }
+        // Apply the same shader modification as other materials
+        material.onBeforeCompile = shaderModifier;
         
-        // Apply fog shader modifications to match your system
-        if (this.shaderModifier && typeof isFogCompatibleMaterial === 'function' && isFogCompatibleMaterial(monoMaterial)) {
-            monoMaterial.onBeforeCompile = this.shaderModifier;
-        }
-        
-        return monoMaterial;
+        return material;
     }
     
     storeMaterialsFromMesh(mesh) {
-        if (!mesh.material) return;
+        if (!mesh.material || this.originalMaterials.has(mesh.uuid)) return;
         
         const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-        const clonedMaterials = materials.map(mat => {
-            const clone = mat.clone();
-            // Preserve texture references for restoration
-            if (mat.map) clone.map = mat.map;
-            if (mat.normalMap) clone.normalMap = mat.normalMap;
-            return clone;
-        });
-        
         this.originalMaterials.set(mesh.uuid, {
-            materials: clonedMaterials,
+            materials: materials.map(m => m),  // Store references, not clones
             isArray: Array.isArray(mesh.material)
         });
     }
     
-    getMaterialForMesh(mesh) {
-        const materialData = this.originalMaterials.get(mesh.uuid);
-        if (!materialData) return null;
-        
-        const key = materialData.materials[0].type;
-        if (!this.monochromaticMaterials.has(key)) {
-            this.monochromaticMaterials.set(key, 
-                this.createMonochromaticMaterial(materialData.materials[0])
-            );
-        }
-        
-        return this.monochromaticMaterials.get(key);
-    }
-    
-    applyToMesh(mesh, isMonochromatic) {
-        const materialData = this.originalMaterials.get(mesh.uuid);
-        if (!materialData) return;
-        
-        if (isMonochromatic) {
-            const monoMaterial = this.getMaterialForMesh(mesh);
-            if (materialData.isArray) {
-                mesh.material = new Array(materialData.materials.length).fill(monoMaterial);
-            } else {
-                mesh.material = monoMaterial;
-            }
-        } else {
-            // Restore original materials
-            mesh.material = materialData.isArray 
-                ? materialData.materials 
-                : materialData.materials[0];
-        }
-    }
-    
-    toggleMonochromatic(scene, cullingLODManager) {
+    toggleMonochromatic(scene) {
         this.isMonochromatic = !this.isMonochromatic;
         
-        // First pass: store materials if not already stored
-        if (this.originalMaterials.size === 0) {
-            scene.traverse((child) => {
-                if (child.isMesh && child.material) {
-                    // Skip the skybox (it's a large sphere with BackSide material)
-                    if (child.geometry?.type === 'SphereGeometry' && 
-                        child.material?.side === THREE.BackSide) {
-                        return;
-                    }
-                    this.storeMaterialsFromMesh(child);
-                }
-            });
+        if (!this.monochromaticMaterial) {
+            this.monochromaticMaterial = this.createMonochromaticMaterial();
         }
         
-        // Second pass: apply material changes
         scene.traverse((child) => {
             if (child.isMesh && child.material) {
                 // Skip the skybox
@@ -1128,20 +1038,30 @@ class MaterialModeManager {
                     child.material?.side === THREE.BackSide) {
                     return;
                 }
-                // Skip popup circles and boundary boxes
-                if (child.material.wireframe || 
-                    child.geometry?.type === 'CircleGeometry' ||
-                    child === cameraBoundarySystem?.boundaryBox) {
+                // Skip wireframe objects
+                if (child.material.wireframe) {
                     return;
                 }
-                this.applyToMesh(child, this.isMonochromatic);
+                
+                // Store original materials on first run
+                this.storeMaterialsFromMesh(child);
+                
+                const materialData = this.originalMaterials.get(child.uuid);
+                if (!materialData) return;
+                
+                if (this.isMonochromatic) {
+                    // Apply monochromatic material
+                    if (materialData.isArray) {
+                        child.material = new Array(materialData.materials.length).fill(this.monochromaticMaterial);
+                    } else {
+                        child.material = this.monochromaticMaterial;
+                    }
+                } else {
+                    // Restore original materials
+                    child.material = materialData.isArray ? materialData.materials : materialData.materials[0];
+                }
             }
         });
-        
-        // Update LOD manager materials
-        if (cullingLODManager) {
-            cullingLODManager.updateMaterialMode(this);
-        }
     }
 }
 
@@ -1254,8 +1174,7 @@ function main() {
         brightness: 0.95,
 
         toggleMonochromatic() {
-            // Use window.cullingLODManager instead since it's set globally
-            materialModeManager.toggleMonochromatic(scene, window.cullingLODManager);
+            materialModeManager.toggleMonochromatic(scene);
             
             // Adjust lighting for monochromatic mode
             if (materialModeManager.isMonochromatic) {
@@ -1277,15 +1196,38 @@ function main() {
                 });
                 scene.fog.density = 0.005;
             }
+            
+            // Update LOD materials if they exist
+            if (window.cullingLODManager) {
+                window.cullingLODManager.objectCache.forEach((lodData) => {
+                    const meshes = lodData.meshes;
+                    for (const level in meshes) {
+                        if (meshes[level]) {
+                            materialModeManager.storeMaterialsFromMesh(meshes[level]);
+                            
+                            const materialData = materialModeManager.originalMaterials.get(meshes[level].uuid);
+                            if (materialData) {
+                                if (materialModeManager.isMonochromatic) {
+                                    meshes[level].material = materialData.isArray 
+                                        ? new Array(materialData.materials.length).fill(materialModeManager.monochromaticMaterial)
+                                        : materialModeManager.monochromaticMaterial;
+                                } else {
+                                    meshes[level].material = materialData.isArray 
+                                        ? materialData.materials 
+                                        : materialData.materials[0];
+                                }
+                            }
+                        }
+                    }
+                });
+            }
         },
         
         adjustBrightness: function() {
-            if (materialModeManager.isMonochromatic) {
+            if (materialModeManager.isMonochromatic && materialModeManager.monochromaticMaterial) {
                 const brightness = this.brightness;
-                materialModeManager.monochromaticMaterials.forEach((material) => {
-                    const baseColor = 0.5 + (brightness * 0.5);
-                    material.color.setRGB(baseColor, baseColor, baseColor);
-                });
+                const baseColor = 0.5 + (brightness * 0.5);
+                materialModeManager.monochromaticMaterial.color.setRGB(baseColor, baseColor, baseColor);
             }
         }
     };
@@ -2618,11 +2560,20 @@ function main() {
                     window.cullingLODManager.injectIntoGLTFScene(root, lodControls);
                     scene.add(root);
                     
-                    // Apply monochromatic mode after model loads
+                    // Apply monochromatic mode after model loads if it's enabled
                     if (visualizationSettings.monochromaticMode) {
-                        // Small delay to ensure all materials are properly initialized
+                        // Delay to ensure everything is initialized
                         setTimeout(() => {
-                            visualizationSettings.toggleMonochromatic();
+                            materialModeManager.toggleMonochromatic(scene);
+                            // Update lighting
+                            scene.children.forEach(child => {
+                                if (child.isHemisphereLight) {
+                                    child.intensity = 3.5;
+                                } else if (child.isDirectionalLight) {
+                                    child.intensity = 2.5;
+                                }
+                            });
+                            scene.fog.density = 0.003;
                         }, 100);
                     }
                     
