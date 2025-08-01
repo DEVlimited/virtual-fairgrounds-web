@@ -1081,7 +1081,6 @@ function main() {
 
     let rotateLeft = false;
     let rotateRight = false;
-    let rotationVelocity = 0;
 
     let isGUIMode = false;
     let guiFocused = false;
@@ -2340,15 +2339,15 @@ function main() {
             case 'KeyD':
                 moveRight = false;
                 break;
-            case 'KeyQ':
-            case 'ArrowLeft':
-                rotateLeft = false;
-                break;
             case 'KeyE':
             case 'ArrowRight':
-                rotateRight = false;
+                rotateLeft = false;  // Was: rotateRight = false
                 break;
-        }
+            case 'KeyQ':
+            case 'ArrowLeft':
+                rotateRight = false;  // Was: rotateLeft = false
+                break;
+                    }
     };
 
     document.addEventListener('keydown', onKeyDown);
@@ -2846,23 +2845,22 @@ function main() {
 
                 velocity.x -= velocity.x * 10.0 * delta;
                 velocity.z -= velocity.z * 10.0 * delta;
-
-                rotationVelocity -= rotationVelocity * 10.0 * delta;
             
-            // Add smooth rotation handling
-            if (rotateLeft && isGUIMode) {
-                rotationVelocity -= 2.0 * delta;  // Adjust speed as needed
-            }
-            if (rotateRight && isGUIMode) {
-                rotationVelocity += 2.0 * delta;  // Adjust speed as needed
-            }
+            // Direct rotation handling - only rotates while key is held
+                const rotationSpeed = 1.5; // Adjust this value to control rotation speed
 
-            // Apply rotation
-            if (Math.abs(rotationVelocity) > 0.001) {
-                cameraEuler.setFromQuaternion(camera.quaternion);
-                cameraEuler.y += rotationVelocity * delta;
-                camera.quaternion.setFromEuler(cameraEuler);
-            }
+                if (isGUIMode) {
+                    if (rotateLeft) {
+                        cameraEuler.setFromQuaternion(camera.quaternion);
+                        cameraEuler.y -= rotationSpeed * delta;
+                        camera.quaternion.setFromEuler(cameraEuler);
+                    }
+                    if (rotateRight) {
+                        cameraEuler.setFromQuaternion(camera.quaternion);
+                        cameraEuler.y += rotationSpeed * delta;
+                        camera.quaternion.setFromEuler(cameraEuler);
+                    }
+                }
 
                 direction.z = Number(moveForward) - Number(moveBackward);
                 direction.x = Number(moveRight) - Number(moveLeft);
