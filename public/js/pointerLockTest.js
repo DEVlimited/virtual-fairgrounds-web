@@ -1100,18 +1100,19 @@ function main() {
     const direction = new THREE.Vector3();
 
     // Loading UI setup
-    const loadingDiv = document.createElement('div');
-    loadingDiv.style.position = 'absolute';
-    loadingDiv.style.top = '50%';
-    loadingDiv.style.left = '50%';
-    loadingDiv.style.transform = 'translate(-50%, -50%)';
-    loadingDiv.style.padding = '20px';
-    loadingDiv.style.background = 'rgba(0,0,0,0.7)';
-    loadingDiv.style.color = 'white';
-    loadingDiv.style.borderRadius = '5px';
-    loadingDiv.style.zIndex = '1000';
-    loadingDiv.textContent = 'Loading model (0%)...';
-    document.body.appendChild(loadingDiv);
+    // const loadingDiv = document.createElement('div');
+    // loadingDiv.style.position = 'absolute';
+    // loadingDiv.style.top = '50%';
+    // loadingDiv.style.left = '50%';
+    // loadingDiv.style.transform = 'translate(-50%, -50%)';
+    // loadingDiv.style.padding = '20px';
+    // loadingDiv.style.background = 'rgba(0,0,0,0.7)';
+    // loadingDiv.style.color = 'white';
+    // loadingDiv.style.borderRadius = '5px';
+    // loadingDiv.style.zIndex = '1000';
+    // loadingDiv.textContent = 'Loading model (0%)...';
+    // document.body.appendChild(loadingDiv);
+    PopupManager.showLoadingPopup();
 
     const blocker = document.getElementById('blocker');
     const instructions = document.getElementById('instructions');
@@ -1248,6 +1249,9 @@ function main() {
         container: document.querySelector('.popup-container'),
         title: document.getElementById('popup-title'),
         content: document.getElementById('popup-content'),
+
+        loadingPopupActive: false,
+        currentTab: 'instructions',
         
         popUpActive: false,
         currentImageIndex: 0,
@@ -1263,6 +1267,8 @@ function main() {
         tiffCache: new Map(),
 
         audio: new Audio(),
+
+        
         
         async init() {
             try {
@@ -1808,6 +1814,171 @@ function main() {
                 alert('Image manifest reloaded successfully!');
             },
             
+            switchTab: function(tabName) {
+                this.currentTab = tabName;
+                
+                // Update tab buttons
+                const tabs = document.querySelectorAll('.popup-tab');
+                tabs.forEach(tab => {
+                    tab.classList.toggle('active', tab.dataset.tab === tabName);
+                });
+                
+                // Update tab content
+                const contents = document.querySelectorAll('.popup-tab-content');
+                contents.forEach(content => {
+                    content.classList.toggle('active', content.dataset.tab === tabName);
+                });
+            },
+
+            // Add this method to show the loading popup
+            showLoadingPopup: function() {
+                this.loadingPopupActive = true;
+                
+                const loadingContent = `
+                    <div class="popup-tabs">
+                        <button class="popup-tab active" data-tab="instructions" onclick="PopupManager.switchTab('instructions')">
+                            Instructions
+                        </button>
+                        <button class="popup-tab" data-tab="history" onclick="PopupManager.switchTab('history')">
+                            History
+                        </button>
+                        <button class="popup-tab" data-tab="credits" onclick="PopupManager.switchTab('credits')">
+                            Credits
+                        </button>
+                    </div>
+                    
+                    <div class="loading-progress">
+                        <div>Loading Virtual Fairgrounds Model...</div>
+                        <div class="loading-bar">
+                            <div class="loading-bar-fill" id="loading-bar-fill"></div>
+                        </div>
+                        <div class="loading-percentage" id="loading-percentage">0%</div>
+                    </div>
+                    
+                    <div class="popup-tab-content active" data-tab="instructions">
+                        <h3>How to Navigate the Virtual Fairgrounds</h3>
+                        <p><strong>Movement Controls:</strong></p>
+                        <ul style="line-height: 1.8;">
+                            <li><strong>W, A, S, D</strong> or <strong>Arrow Keys</strong> - Move forward, left, backward, and right</li>
+                            <li><strong>Mouse</strong> - Look around and change your view direction</li>
+                            <li><strong>Q & E</strong> - Rotate camera when in GUI mode</li>
+                            <li><strong>F</strong> - Interact with locations when you see the prompt</li>
+                            <li><strong>ESC</strong> - Pause and show menu</li>
+                            <li><strong>M</strong> - Toggle monochromatic mode</li>
+                            <li><strong>Middle Mouse Button</strong> - Toggle GUI mode for settings</li>
+                        </ul>
+                        
+                        <p><strong>Exploration Tips:</strong></p>
+                        <ul style="line-height: 1.8;">
+                            <li>Look for the green interaction prompts near historic buildings</li>
+                            <li>Stay within the green boundary markers</li>
+                            <li>Visit the East Side Theater ticket booth to learn more about the neighborhood</li>
+                            <li>Each location has historical photos and audio recordings to discover</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="popup-tab-content" data-tab="history">
+                        <h3>The Fairgrounds Neighborhood (1955)</h3>
+                        <p>Welcome to a digital recreation of Oklahoma City's historic Fairgrounds District, a vibrant African American community that thrived in the mid-20th century.</p>
+                        
+                        <p><strong>About the Neighborhood:</strong></p>
+                        <p>The Fairgrounds neighborhood, also known as part of Deep Deuce, was bounded by NE 8th Street to the north and the Rock Island railroad tracks to the south. This densely populated area was home to a thriving Black community, with Bath Avenue serving as its commercial heart.</p>
+                        
+                        <p><strong>Key Locations You'll Explore:</strong></p>
+                        <ul style="line-height: 1.8;">
+                            <li><strong>East Side Theater (720-722 Bath Avenue)</strong> - The crown jewel of the district, opened in 1946</li>
+                            <li><strong>Bill's Cleaners (718 Bath)</strong> - A long-running business that operated until 1973</li>
+                            <li><strong>Domino Parlor (714 Bath)</strong> - A popular social gathering spot for men</li>
+                            <li><strong>Melody Records (710B Bath)</strong> - The heart of the local music scene</li>
+                        </ul>
+                        
+                        <p><strong>Urban Renewal Impact:</strong></p>
+                        <p>This virtual preservation captures the neighborhood before urban renewal programs of the 1960s-70s led to widespread demolition. Today, this 3D environment serves as a bridge between past and present, preserving the memories and stories of a community that was physically erased but lives on in the hearts of those who remember.</p>
+                    </div>
+                    
+                    <div class="popup-tab-content" data-tab="credits">
+                        <h3>Virtual Fairgrounds Project Credits</h3>
+                        
+                        <p><strong>A Collaboration Between:</strong></p>
+                        <ul style="line-height: 1.8;">
+                            <li>Metropolitan Library System</li>
+                            <li>Drone's Eye View (DEV) Limited</li>
+                        </ul>
+                        
+                        <p><strong>Project Team:</strong></p>
+                        <ul style="line-height: 1.8;">
+                            <li><strong>Bobby Reed</strong> - Lead Developer & Technical Director</li>
+                            <li><strong>Judith Matthews</strong> - Project Visionary & Historical Consultant</li>
+                            <li><strong>Metropolitan Library System Special Collections</strong> - Archival Materials</li>
+                        </ul>
+                        
+                        <p><strong>Special Thanks To:</strong></p>
+                        <p>Sandra Richards, JW Sanford and family, Avis Franklin, Melba Holt, Kimberly Francisco, Kasey Jones-Matrona, George Melvin Richardson and family, Eloise Carbajal, Hobert Sutton, Huretta Walker Dobbs, Anita Arnold, Melva Franklin, and all the families, business owners, and patrons of the Fairgrounds Neighborhood.</p>
+                        
+                        <p><strong>Student Contributors:</strong></p>
+                        <ul style="line-height: 1.8;">
+                            <li><strong>xDarthx</strong> - Summer 2025 Intern</li>
+                            <li>Oklahoma City University Software Engineering Students</li>
+                        </ul>
+                        
+                        <p><strong>Technical Framework:</strong></p>
+                        <p>Built with Three.js, WebGL, and modern web technologies to ensure preservation and accessibility for future generations.</p>
+                        
+                        <p style="margin-top: 20px; font-style: italic; text-align: center;">
+                            "Preserving Oklahoma City's cultural heritage through immersive technology"
+                        </p>
+                    </div>
+                `;
+                
+                // Modify the overlay to add loading-popup class
+                this.overlay.classList.add('loading-popup');
+                
+                // Don't allow closing during loading
+                const originalCloseBtn = document.getElementById('popup-close-btn');
+                if (originalCloseBtn) {
+                    originalCloseBtn.style.display = 'none';
+                }
+                
+                // Update header for loading popup
+                this.show('Virtual Fairgrounds', loadingContent);
+                
+                // Add subtitle to header
+                const header = document.querySelector('.popup-header');
+                if (header && !header.querySelector('.popup-subtitle')) {
+                    const subtitle = document.createElement('p');
+                    subtitle.className = 'popup-subtitle';
+                    subtitle.textContent = 'Preserving Oklahoma City\'s Historic Fairgrounds Neighborhood';
+                    header.appendChild(subtitle);
+                }
+            },
+
+            // Add this method to update loading progress
+            updateLoadingProgress: function(percentage) {
+                const fillBar = document.getElementById('loading-bar-fill');
+                const percentText = document.getElementById('loading-percentage');
+                
+                if (fillBar) {
+                    fillBar.style.width = percentage + '%';
+                }
+                if (percentText) {
+                    percentText.textContent = percentage + '%';
+                }
+            },
+
+            // Add this method to hide loading popup
+            hideLoadingPopup: function() {
+                this.loadingPopupActive = false;
+                this.overlay.classList.remove('loading-popup');
+                
+                // Restore close button
+                const closeBtn = document.getElementById('popup-close-btn');
+                if (closeBtn) {
+                    closeBtn.style.display = '';
+                }
+                
+                this.hide();
+            },
+            
             checkTiffSupport: function() {
                 if (window.UTIF) {
                     console.log('✅ TIFF support is loaded');
@@ -1942,7 +2113,7 @@ function main() {
 
     // Close popup listener
     document.getElementById('popup').addEventListener('click', function (e) {
-        if (e.target === this) {
+        if (e.target === this && !PopupManager.loadingPopupActive) {
             closePopup();
             controls.lock();
             PopupManager.popUpActive = false;
@@ -1951,7 +2122,7 @@ function main() {
 
     // The X on the popup listener
     document.getElementById('popup-close-btn').addEventListener('click', function (e) {
-        if (e.target === this) {
+        if (e.target === this && !PopupManager.loadingPopupActive) {
             closePopup();
             controls.lock();
             PopupManager.popUpActive = false;
@@ -2551,8 +2722,10 @@ function main() {
             baseURL + 'fairgrounds.glb',
             (glb) => {
                 try {
-                    loadingDiv.style.display = 'none';
-                    const root = glb.scene;
+                // Hide the loading popup
+                PopupManager.hideLoadingPopup();
+                
+                const root = glb.scene;
 
                     const updateTextureQuality = setupOptimizedTextureSystem(root, scene, camera);
                     window.updateTextureQuality = updateTextureQuality;
@@ -2583,31 +2756,36 @@ function main() {
                     instructions.style.display = '';
                     dracoLoader.dispose();
                 } catch (error) {
-                    console.error('Error processing loaded model:', error);
-                    loadingDiv.textContent = 'Error processing model. Check console for details.';
-                    loadingDiv.style.background = 'rgba(255,0,0,0.7)';
+                        console.error('Error processing loaded model:', error);
+                        // Update the loading popup to show error
+                        const progressDiv = document.querySelector('.loading-progress');
+                        if (progressDiv) {
+                            progressDiv.innerHTML = '<div style="color: #d32f2f;">Error loading model. Please refresh the page.</div>';
+                        }
+                        dracoLoader.dispose();
+                    }
+                },
+                (xhr) => {
+                    if (xhr.lengthComputable) {
+                        const percentComplete = Math.round((xhr.loaded / xhr.total) * 100);
+                        PopupManager.updateLoadingProgress(percentComplete);
+                        
+                        if (blocker.style.display === '' && instructions.style.display === '') {
+                            instructions.style.display = 'none';
+                            blocker.style.display = 'none';
+                        }
+                    }
+                },
+                (error) => {
+                    console.error('Error loading model:', error);
+                    // Update the loading popup to show error
+                    const progressDiv = document.querySelector('.loading-progress');
+                    if (progressDiv) {
+                        progressDiv.innerHTML = '<div style="color: #d32f2f;">Error loading model. Please check your connection and refresh.</div>';
+                    }
                     dracoLoader.dispose();
                 }
-            },
-            (xhr) => {
-                if (xhr.lengthComputable) {
-                    const percentComplete = Math.round((xhr.loaded / xhr.total) * 100);
-                    loadingDiv.textContent = `Loading model (${percentComplete}%)...`;
-                    if (blocker.style.display === '' && instructions.style.display === '') {
-                        instructions.style.display = 'none';
-                        blocker.style.display = 'none';
-                    }
-                }
-            },
-            (error) => {
-                loadingDiv.textContent = 'Error loading model. Check console for details.';
-                loadingDiv.style.background = 'rgba(255,0,0,0.7)';
-                console.error('Error loading model:', error);
-
-                dracoLoader.dispose();
-            }
-        );
-
+            );
     }
 
     function resizeRendererToDisplaySize(renderer) {
