@@ -1045,7 +1045,7 @@ class MaterialModeManager {
         }
         
         // Apply fog shader modifications to match your system
-        if (this.shaderModifier && isFogCompatibleMaterial(monoMaterial)) {
+        if (this.shaderModifier && typeof isFogCompatibleMaterial === 'function' && isFogCompatibleMaterial(monoMaterial)) {
             monoMaterial.onBeforeCompile = this.shaderModifier;
         }
         
@@ -1110,6 +1110,11 @@ class MaterialModeManager {
         if (this.originalMaterials.size === 0) {
             scene.traverse((child) => {
                 if (child.isMesh && child.material) {
+                    // Skip the skybox (it's a large sphere with BackSide material)
+                    if (child.geometry?.type === 'SphereGeometry' && 
+                        child.material?.side === THREE.BackSide) {
+                        return;
+                    }
                     this.storeMaterialsFromMesh(child);
                 }
             });
@@ -1118,6 +1123,17 @@ class MaterialModeManager {
         // Second pass: apply material changes
         scene.traverse((child) => {
             if (child.isMesh && child.material) {
+                // Skip the skybox
+                if (child.geometry?.type === 'SphereGeometry' && 
+                    child.material?.side === THREE.BackSide) {
+                    return;
+                }
+                // Skip popup circles and boundary boxes
+                if (child.material.wireframe || 
+                    child.geometry?.type === 'CircleGeometry' ||
+                    child === cameraBoundarySystem?.boundaryBox) {
+                    return;
+                }
                 this.applyToMesh(child, this.isMonochromatic);
             }
         });
@@ -1236,47 +1252,32 @@ function main() {
     const visualizationSettings = {
         monochromaticMode: true,
         brightness: 0.95,
-    
-        toggleMonochromatic(scene, cullingLODManager) {
-    this.isMonochromatic = !this.isMonochromatic;
-    
-    // First pass: store materials if not already stored
-    if (this.originalMaterials.size === 0) {
-        scene.traverse((child) => {
-            if (child.isMesh && child.material) {
-                // Skip the skybox (it's a large sphere with BackSide material)
-                if (child.geometry?.type === 'SphereGeometry' && 
-                    child.material?.side === THREE.BackSide) {
-                    return;
-                }
-                this.storeMaterialsFromMesh(child);
+
+        toggleMonochromatic() {
+            // Use window.cullingLODManager instead since it's set globally
+            materialModeManager.toggleMonochromatic(scene, window.cullingLODManager);
+            
+            // Adjust lighting for monochromatic mode
+            if (materialModeManager.isMonochromatic) {
+                scene.children.forEach(child => {
+                    if (child.isHemisphereLight) {
+                        child.intensity = 3.5;
+                    } else if (child.isDirectionalLight) {
+                        child.intensity = 2.5;
+                    }
+                });
+                scene.fog.density = 0.003;
+            } else {
+                scene.children.forEach(child => {
+                    if (child.isHemisphereLight) {
+                        child.intensity = 2;
+                    } else if (child.isDirectionalLight) {
+                        child.intensity = 5;
+                    }
+                });
+                scene.fog.density = 0.005;
             }
-        });
-    }
-    
-    // Second pass: apply material changes
-    scene.traverse((child) => {
-        if (child.isMesh && child.material) {
-            // Skip the skybox
-            if (child.geometry?.type === 'SphereGeometry' && 
-                child.material?.side === THREE.BackSide) {
-                return;
-            }
-            // Skip popup circles and boundary boxes
-            if (child.material.wireframe || 
-                child.geometry?.type === 'CircleGeometry' ||
-                child === cameraBoundarySystem?.boundaryBox) {
-                return;
-            }
-            this.applyToMesh(child, this.isMonochromatic);
-        }
-    });
-    
-    // Update LOD manager materials
-    if (cullingLODManager) {
-        cullingLODManager.updateMaterialMode(this);
-    }
-},
+        },
         
         adjustBrightness: function() {
             if (materialModeManager.isMonochromatic) {
@@ -2605,36 +2606,35 @@ function main() {
         gltfLoader.setDRACOLoader(dracoLoader);
 
         gltfLoader.load(
-    baseURL + 'fairgrounds.glb',
-    (glb) => {
-        try {
-            loadingDiv.style.display = 'none';
-            const root = glb.scene;
+            baseURL + 'fairgrounds.glb',
+            (glb) => {
+                try {
+                    loadingDiv.style.display = 'none';
+                    const root = glb.scene;
 
-            const updateTextureQuality = setupOptimizedTextureSystem(root, scene, camera);
-            window.updateTextureQuality = updateTextureQuality;
+                    const updateTextureQuality = setupOptimizedTextureSystem(root, scene, camera);
+                    window.updateTextureQuality = updateTextureQuality;
 
-            window.cullingLODManager.injectIntoGLTFScene(root, lodControls);
-            scene.add(root);
-            
-            // Apply monochromatic mode after model loads
-            if (visualizationSettings.monochromaticMode) {
-                // Small delay to ensure all materials are properly initialized
-                setTimeout(() => {
-                    visualizationSettings.toggleMonochromatic();
-                }, 100);
-            }
-            
-            console.log(dumpObject(root).join('\n'));
-            setupBoundaries();
-            blocker.style.display = '';
-            instructions.style.display = '';
-            dracoLoader.dispose();
-        } catch (error) {
+                    window.cullingLODManager.injectIntoGLTFScene(root, lodControls);
+                    scene.add(root);
+                    
+                    // Apply monochromatic mode after model loads
+                    if (visualizationSettings.monochromaticMode) {
+                        // Small delay to ensure all materials are properly initialized
+                        setTimeout(() => {
+                            visualizationSettings.toggleMonochromatic();
+                        }, 100);
+                    }
+                    
+                    console.log(dumpObject(root).join('\n'));
+                    setupBoundaries();
+                    blocker.style.display = '';
+                    instructions.style.display = '';
+                    dracoLoader.dispose();
+                } catch (error) {
                     console.error('Error processing loaded model:', error);
                     loadingDiv.textContent = 'Error processing model. Check console for details.';
                     loadingDiv.style.background = 'rgba(255,0,0,0.7)';
-
                     dracoLoader.dispose();
                 }
             },
