@@ -178,6 +178,13 @@ function setupCustomFogShaders() {
     #endif`;
 }
 
+// Create a shader modifier that matches your existing system
+const shaderModifier = (shader) => {
+    shader.uniforms.fogTime = { value: 0.0 };
+    cullingLODManager.trackedShaders.push(shader);
+};
+
+
 // Advanced Frustum Culling and LOD System for Three.js
 // This is another LODManager section of code that I found online,
 // It helps keep only objects in the frustrum loaded and unloads objects that are too far away
@@ -192,6 +199,21 @@ class AdvancedCullingLODManager {
         this.objectCache = new Map();
         this.frameCount = 0;
         this.trackedShaders = [];
+    }
+
+    updateMaterialMode(materialModeManager) {
+    if (!materialModeManager) return;
+    
+    // Store original materials for LOD meshes if needed
+    this.objectCache.forEach((lodData) => {
+        const meshes = lodData.meshes;
+        for (const level in meshes) {
+            if (meshes[level] && meshes[level].material) {
+                materialModeManager.storeMaterialsFromMesh(meshes[level]);
+                materialModeManager.applyToMesh(meshes[level], materialModeManager.isMonochromatic);
+            }
+        }
+    });
     }
 
     registerObjectGroupFromGLTF(originalMesh, lodOptions = {}) {
@@ -986,6 +1008,127 @@ function setupCameraBoundaries(scene, camera, controls) {
     return boundary;
 }
 
+class MaterialModeManager {
+    constructor() {
+        this.originalMaterials = new Map();
+        this.isMonochromatic = false;
+        this.monochromaticMaterials = new Map(); // Cache for different material types
+        this.shaderModifier = null;
+    }
+    
+    setShaderModifier(modifierFunc) {
+        this.shaderModifier = modifierFunc;
+    }
+    
+    createMonochromaticMaterial(originalMaterial = null) {
+        // Determine the appropriate monochromatic material type
+        let monoMaterial;
+        
+        if (!originalMaterial || originalMaterial.isMeshBasicMaterial) {
+            monoMaterial = new THREE.MeshBasicMaterial({
+                color: 0xf0f0f0,
+                fog: true
+            });
+        } else if (originalMaterial.isMeshLambertMaterial) {
+            monoMaterial = new THREE.MeshLambertMaterial({
+                color: 0xf5f5f5,
+                fog: true
+            });
+        } else {
+            // Default to MeshStandardMaterial for better lighting
+            monoMaterial = new THREE.MeshStandardMaterial({
+                color: 0xf8f8f8,
+                roughness: 0.85,
+                metalness: 0.0,
+                fog: true
+            });
+        }
+        
+        // Apply fog shader modifications to match your system
+        if (this.shaderModifier && isFogCompatibleMaterial(monoMaterial)) {
+            monoMaterial.onBeforeCompile = this.shaderModifier;
+        }
+        
+        return monoMaterial;
+    }
+    
+    storeMaterialsFromMesh(mesh) {
+        if (!mesh.material) return;
+        
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        const clonedMaterials = materials.map(mat => {
+            const clone = mat.clone();
+            // Preserve texture references for restoration
+            if (mat.map) clone.map = mat.map;
+            if (mat.normalMap) clone.normalMap = mat.normalMap;
+            return clone;
+        });
+        
+        this.originalMaterials.set(mesh.uuid, {
+            materials: clonedMaterials,
+            isArray: Array.isArray(mesh.material)
+        });
+    }
+    
+    getMaterialForMesh(mesh) {
+        const materialData = this.originalMaterials.get(mesh.uuid);
+        if (!materialData) return null;
+        
+        const key = materialData.materials[0].type;
+        if (!this.monochromaticMaterials.has(key)) {
+            this.monochromaticMaterials.set(key, 
+                this.createMonochromaticMaterial(materialData.materials[0])
+            );
+        }
+        
+        return this.monochromaticMaterials.get(key);
+    }
+    
+    applyToMesh(mesh, isMonochromatic) {
+        const materialData = this.originalMaterials.get(mesh.uuid);
+        if (!materialData) return;
+        
+        if (isMonochromatic) {
+            const monoMaterial = this.getMaterialForMesh(mesh);
+            if (materialData.isArray) {
+                mesh.material = new Array(materialData.materials.length).fill(monoMaterial);
+            } else {
+                mesh.material = monoMaterial;
+            }
+        } else {
+            // Restore original materials
+            mesh.material = materialData.isArray 
+                ? materialData.materials 
+                : materialData.materials[0];
+        }
+    }
+    
+    toggleMonochromatic(scene, cullingLODManager) {
+        this.isMonochromatic = !this.isMonochromatic;
+        
+        // First pass: store materials if not already stored
+        if (this.originalMaterials.size === 0) {
+            scene.traverse((child) => {
+                if (child.isMesh && child.material) {
+                    this.storeMaterialsFromMesh(child);
+                }
+            });
+        }
+        
+        // Second pass: apply material changes
+        scene.traverse((child) => {
+            if (child.isMesh && child.material) {
+                this.applyToMesh(child, this.isMonochromatic);
+            }
+        });
+        
+        // Update LOD manager materials
+        if (cullingLODManager) {
+            cullingLODManager.updateMaterialMode(this);
+        }
+    }
+}
+
 function main() {
     setupCustomFogShaders();
 
@@ -1008,6 +1151,8 @@ function main() {
     let guiFocused = false;
 
     let cameraEuler = new Euler(0, 0, 0, 'YXZ');
+
+    const materialModeManager = new MaterialModeManager();
 
     const testAudio = new Audio('../public/audio/eastsideTheatre1.mp3');
     testAudio.addEventListener('canplay', () => console.log('File is playable'));
@@ -1085,6 +1230,73 @@ function main() {
     debugFolder.add(debugSettings, 'showPopupCircles')
         .name('Show Popup Circles')
         .onChange(() => debugSettings.togglePopupCircles());
+
+
+    const visualizationFolder = gui.addFolder('Visualization Modes');
+    const visualizationSettings = {
+        monochromaticMode: true,
+        brightness: 0.95,
+    
+        toggleMonochromatic(scene, cullingLODManager) {
+    this.isMonochromatic = !this.isMonochromatic;
+    
+    // First pass: store materials if not already stored
+    if (this.originalMaterials.size === 0) {
+        scene.traverse((child) => {
+            if (child.isMesh && child.material) {
+                // Skip the skybox (it's a large sphere with BackSide material)
+                if (child.geometry?.type === 'SphereGeometry' && 
+                    child.material?.side === THREE.BackSide) {
+                    return;
+                }
+                this.storeMaterialsFromMesh(child);
+            }
+        });
+    }
+    
+    // Second pass: apply material changes
+    scene.traverse((child) => {
+        if (child.isMesh && child.material) {
+            // Skip the skybox
+            if (child.geometry?.type === 'SphereGeometry' && 
+                child.material?.side === THREE.BackSide) {
+                return;
+            }
+            // Skip popup circles and boundary boxes
+            if (child.material.wireframe || 
+                child.geometry?.type === 'CircleGeometry' ||
+                child === cameraBoundarySystem?.boundaryBox) {
+                return;
+            }
+            this.applyToMesh(child, this.isMonochromatic);
+        }
+    });
+    
+    // Update LOD manager materials
+    if (cullingLODManager) {
+        cullingLODManager.updateMaterialMode(this);
+    }
+},
+        
+        adjustBrightness: function() {
+            if (materialModeManager.isMonochromatic) {
+                const brightness = this.brightness;
+                materialModeManager.monochromaticMaterials.forEach((material) => {
+                    const baseColor = 0.5 + (brightness * 0.5);
+                    material.color.setRGB(baseColor, baseColor, baseColor);
+                });
+            }
+        }
+    };
+
+    visualizationFolder.add(visualizationSettings, 'monochromaticMode')
+        .name('Monochromatic Mode')
+        .onChange(() => visualizationSettings.toggleMonochromatic());
+
+    visualizationFolder.add(visualizationSettings, 'brightness', 0.5, 1.0, 0.05)
+        .name('Brightness')
+        .onChange(() => visualizationSettings.adjustBrightness());
+
 
     setupCarouselGUI(gui);
 
@@ -1958,13 +2170,19 @@ function main() {
             case 'KeyD':
                 moveRight = true;
                 break;
-            case 'KeyQ':
-            case 'ArrowLeft':
-                if (isGUIMode) rotateLeft = true;
-                break;
             case 'KeyE':
             case 'ArrowRight':
+                if (isGUIMode) rotateLeft = true;
+                break;
+            case 'KeyQ':
+            case 'ArrowLeft':
                 if (isGUIMode) rotateRight = true;
+                break;
+            case 'KeyM':
+                if (!guiFocused && !PopupManager.popUpActive) {
+                    visualizationSettings.monochromaticMode = !visualizationSettings.monochromaticMode;
+                    visualizationSettings.toggleMonochromatic();
+                }
                 break;
         }
     };
@@ -2315,6 +2533,18 @@ function main() {
             }
         }
     };
+    //monochromatic filter
+    skyboxController.applyMonochromaticFilter = function() {
+        if (skySphereMesh && materialModeManager.isMonochromatic) {
+            // Create a desaturated version of the skybox
+            const monoSkyMaterial = new THREE.MeshBasicMaterial({
+                color: 0xe8e8e8,
+                side: THREE.BackSide,
+                fog: false
+            });
+            skySphereMesh.material = monoSkyMaterial;
+        }
+    };
 
     // Separate function to set up the GUI control after the skybox is loaded
     function setupSkyboxGUI() {
@@ -2375,26 +2605,32 @@ function main() {
         gltfLoader.setDRACOLoader(dracoLoader);
 
         gltfLoader.load(
-            baseURL + 'fairgrounds.glb',
-            (glb) => {
-                try {
-                    loadingDiv.style.display = 'none';
-                    const root = glb.scene;
+    baseURL + 'fairgrounds.glb',
+    (glb) => {
+        try {
+            loadingDiv.style.display = 'none';
+            const root = glb.scene;
 
-                    const updateTextureQuality = setupOptimizedTextureSystem(root, scene, camera);
-                    window.updateTextureQuality = updateTextureQuality;
+            const updateTextureQuality = setupOptimizedTextureSystem(root, scene, camera);
+            window.updateTextureQuality = updateTextureQuality;
 
-                    window.cullingLODManager.injectIntoGLTFScene(root, lodControls);
-                    scene.add(root);
-                    console.log(dumpObject(root).join('\n'));
-
-                    setupBoundaries();
-                    blocker.style.display = '';
-                    instructions.style.display = '';
-
-                    dracoLoader.dispose();
-
-                } catch (error) {
+            window.cullingLODManager.injectIntoGLTFScene(root, lodControls);
+            scene.add(root);
+            
+            // Apply monochromatic mode after model loads
+            if (visualizationSettings.monochromaticMode) {
+                // Small delay to ensure all materials are properly initialized
+                setTimeout(() => {
+                    visualizationSettings.toggleMonochromatic();
+                }, 100);
+            }
+            
+            console.log(dumpObject(root).join('\n'));
+            setupBoundaries();
+            blocker.style.display = '';
+            instructions.style.display = '';
+            dracoLoader.dispose();
+        } catch (error) {
                     console.error('Error processing loaded model:', error);
                     loadingDiv.textContent = 'Error processing model. Check console for details.';
                     loadingDiv.style.background = 'rgba(255,0,0,0.7)';
