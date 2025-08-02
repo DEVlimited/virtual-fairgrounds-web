@@ -9,694 +9,7 @@ import { PopupCircle } from './utils/PopupCircle.js';
 import { MinMaxGUIHelper, ColorGUIHelper, FogGUIHelper } from './utils/GUIHelpers.js';
 import { CAMERA_CONFIG, MOVEMENT, FOG_CONFIG, BOUNDARIES, MODEL_URL } from './config/constants.js';
 import { INTERACTION_ZONES } from './config/locations.js';
-
-const _NOISE_GLSL = `
-//
-// Description : Array and textureless GLSL 2D/3D/4D simplex
-//               noise functions.
-//      Author : Ian McEwan, Ashima Arts.
-//  Maintainer : stegu
-//     Lastmod : 20201014 (stegu)
-//     License : Copyright (C) 2011 Ashima Arts. All rights reserved.
-//               Distributed under the MIT License. See LICENSE file.
-//               https://github.com/ashima/webgl-noise
-//               https://github.com/stegu/webgl-noise
-//
-
-vec3 mod289(vec3 x) {
-  return x - floor(x * (1.0 / 289.0)) * 289.0;
-}
-
-vec4 mod289(vec4 x) {
-  return x - floor(x * (1.0 / 289.0)) * 289.0;
-}
-
-vec4 permute(vec4 x) {
-     return mod289(((x*34.0)+1.0)*x);
-}
-
-vec4 taylorInvSqrt(vec4 r)
-{
-  return 1.79284291400159 - 0.85373472095314 * r;
-}
-
-float snoise(vec3 v)
-{
-  const vec2  C = vec2(1.0/6.0, 1.0/3.0) ;
-  const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
-
-// First corner
-  vec3 i  = floor(v + dot(v, C.yyy) );
-  vec3 x0 =   v - i + dot(i, C.xxx) ;
-
-// Other corners
-  vec3 g = step(x0.yzx, x0.xyz);
-  vec3 l = 1.0 - g;
-  vec3 i1 = min( g.xyz, l.zxy );
-  vec3 i2 = max( g.xyz, l.zxy );
-
-  //   x0 = x0 - 0.0 + 0.0 * C.xxx;
-  //   x1 = x0 - i1  + 1.0 * C.xxx;
-  //   x2 = x0 - i2  + 2.0 * C.xxx;
-  //   x3 = x0 - 1.0 + 3.0 * C.xxx;
-  vec3 x1 = x0 - i1 + C.xxx;
-  vec3 x2 = x0 - i2 + C.yyy; // 2.0*C.x = 1/3 = C.y
-  vec3 x3 = x0 - D.yyy;      // -1.0+3.0*C.x = -0.5 = -D.y
-
-// Permutations
-  i = mod289(i);
-  vec4 p = permute( permute( permute(
-             i.z + vec4(0.0, i1.z, i2.z, 1.0 ))
-           + i.y + vec4(0.0, i1.y, i2.y, 1.0 ))
-           + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
-
-// Gradients: 7x7 points over a square, mapped onto an octahedron.
-// The ring size 17*17 = 289 is close to a multiple of 49 (49*6 = 294)
-  float n_ = 0.142857142857; // 1.0/7.0
-  vec3  ns = n_ * D.wyz - D.xzx;
-
-  vec4 j = p - 49.0 * floor(p * ns.z * ns.z);  //  mod(p,7*7)
-
-  vec4 x_ = floor(j * ns.z);
-  vec4 y_ = floor(j - 7.0 * x_ );    // mod(j,N)
-
-  vec4 x = x_ *ns.x + ns.yyyy;
-  vec4 y = y_ *ns.x + ns.yyyy;
-  vec4 h = 1.0 - abs(x) - abs(y);
-
-  vec4 b0 = vec4( x.xy, y.xy );
-  vec4 b1 = vec4( x.zw, y.zw );
-
-  //vec4 s0 = vec4(lessThan(b0,0.0))*2.0 - 1.0;
-  //vec4 s1 = vec4(lessThan(b1,0.0))*2.0 - 1.0;
-  vec4 s0 = floor(b0)*2.0 + 1.0;
-  vec4 s1 = floor(b1)*2.0 + 1.0;
-  vec4 sh = -step(h, vec4(0.0));
-
-  vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
-  vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
-
-  vec3 p0 = vec3(a0.xy,h.x);
-  vec3 p1 = vec3(a0.zw,h.y);
-  vec3 p2 = vec3(a1.xy,h.z);
-  vec3 p3 = vec3(a1.zw,h.w);
-
-//Normalise gradients
-  vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
-  p0 *= norm.x;
-  p1 *= norm.y;
-  p2 *= norm.z;
-  p3 *= norm.w;
-
-// Mix final noise value
-  vec4 m = max(0.5 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
-  m = m * m;
-  return 105.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1),
-                                dot(p2,x2), dot(p3,x3) ) );
-}
-
-float FBM(vec3 p) {
-  float value = 0.0;
-  float amplitude = 0.5;
-  float frequency = 0.0;
-  for (int i = 0; i < 6; ++i) {
-    value += amplitude * snoise(p);
-    p *= 2.0;
-    amplitude *= 0.5;
-  }
-  return value;
-}
-`;
-
-// Fixed shader chunks that avoid variable redefinition conflicts
-// Also had claude help me redefine the noise calculations and fog shader for overall better performance
-function setupCustomFogShaders() {
-    // Use a unique variable name to avoid conflicts
-    THREE.ShaderChunk.fog_pars_vertex = `
-    #ifdef USE_FOG
-      varying vec3 vFogWorldPosition;
-    #endif`;
-
-    THREE.ShaderChunk.fog_vertex = `
-    #ifdef USE_FOG
-      vec4 fogWorldPosition = modelMatrix * vec4(position, 1.0);
-      vFogWorldPosition = fogWorldPosition.xyz;
-    #endif`;
-
-    THREE.ShaderChunk.fog_pars_fragment = _NOISE_GLSL + `
-    #ifdef USE_FOG
-      uniform float fogTime;
-      uniform vec3 fogColor;
-      varying vec3 vFogWorldPosition;
-      #ifdef FOG_EXP2
-        uniform float fogDensity;
-      #else
-        uniform float fogNear;
-        uniform float fogFar;
-      #endif
-    #endif`;
-
-    // Basically it just checks the distance of objects and if it is too distant 
-    // then the noise is much less for better performance.
-    THREE.ShaderChunk.fog_fragment = `
-    #ifdef USE_FOG
-        vec3 fogOrigin = cameraPosition;
-        float fogDepth = distance(vFogWorldPosition, fogOrigin);
-        
-        // Simplified noise calculation for distant objects
-        float noiseSample = 1.0;
-        if (fogDepth < 200.0) {
-            vec3 noiseSampleCoord = vFogWorldPosition * 0.00025 + vec3(0.0, 0.0, fogTime * 0.025);
-            noiseSample = FBM(noiseSampleCoord + FBM(noiseSampleCoord)) * 0.5 + 0.5;
-        }
-        
-        fogDepth *= mix(noiseSample, 1.0, saturate((fogDepth - 5000.0) / 5000.0));
-        fogDepth *= fogDepth;
-        
-        float heightFactor = 0.05;
-        float fogFactor = heightFactor * exp(-fogOrigin.y * fogDensity) * 
-            (1.0 - exp(-fogDepth * normalize(vFogWorldPosition - fogOrigin).y * fogDensity)) / 
-            normalize(vFogWorldPosition - fogOrigin).y;
-        fogFactor = saturate(fogFactor);
-        
-        gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, fogFactor);
-    #endif`;
-}
-
-// Create a shader modifier that matches your existing system
-const shaderModifier = (shader) => {
-    shader.uniforms.fogTime = { value: 0.0 };
-    cullingLODManager.trackedShaders.push(shader);
-};
-
-
-// Advanced Frustum Culling and LOD System for Three.js
-// This is another LODManager section of code that I found online,
-// It helps keep only objects in the frustrum loaded and unloads objects that are too far away
-// REFACTORED: Advanced LOD system with NO MATERIAL SWAPPING
-// Uses separate LOD mesh instances with visibility toggling
-class AdvancedCullingLODManager {
-    constructor(camera, renderer) {
-        this.camera = camera;
-        this.renderer = renderer;
-        this.frustum = new THREE.Frustum();
-        this.cameraMatrix = new THREE.Matrix4();
-        this.objectCache = new Map();
-        this.frameCount = 0;
-        this.trackedShaders = [];
-    }
-
-    registerObjectGroupFromGLTF(originalMesh, lodOptions = {}) {
-        const baseName = originalMesh.name;
-
-        const group = new THREE.Group();
-        group.name = `${baseName}_LODGroup`;
-
-        const high = originalMesh.clone();
-        high.name = 'high';
-        this.prepareMaterialWithFog(high.material);
-
-        const medium = originalMesh.clone();
-        medium.name = 'medium';
-        medium.material = this.simplifyMaterial(medium.material, 'medium');
-        this.prepareMaterialWithFog(medium.material);
-
-        const low = originalMesh.clone();
-        low.name = 'low';
-        low.material = this.simplifyMaterial(low.material, 'low');
-        this.prepareMaterialWithFog(low.material);
-
-        group.add(high, medium, low);
-        originalMesh.parent.add(group);
-        originalMesh.parent.remove(originalMesh);
-
-        return this.registerObject(group, lodOptions);
-    }
-
-    prepareMaterialWithFog(material) {
-        const materials = Array.isArray(material) ? material : [material];
-        materials.forEach((mat) => {
-            if (typeof isFogCompatibleMaterial === 'function' && isFogCompatibleMaterial(mat)) {
-                mat.fog = true;
-                mat.needsUpdate = true;
-                this.trackedShaders.push(mat);
-            }
-        });
-    }
-
-    updateFogTimeUniforms(totalTime) {
-        for (let s of this.trackedShaders) {
-            try {
-                if (s.uniforms && s.uniforms.fogTime) {
-                    s.uniforms.fogTime.value = totalTime;
-                }
-            } catch (error) {
-                console.warn('Error updating shader uniform:', error);
-            }
-        }
-    }
-
-    simplifyMaterial(material, level) {
-        if (!material || typeof material.clone !== 'function') return material;
-
-        const simplified = material.clone();
-
-        // Preserve key visual features
-        simplified.map = material.map;
-        simplified.color = material.color?.clone?.() ?? new THREE.Color(0xffffff);
-
-        if (level === 'medium' || level === 'low') {
-            simplified.flatShading = true;
-        } else if (level == 'low') {
-            const simplifiedLow = new THREE.MeshLambertMaterial({
-                map: material.map,
-                color: material.color,
-                flatShading: true,
-            });
-            simplifiedLow.needsUpdate = true;
-            return simplifiedLow;
-        }
-
-        simplified.needsUpdate = true;
-        return simplified;
-
-    }
-
-    injectIntoGLTFScene(gltfScene, defaultLODOptions = {}) {
-        gltfScene.traverse((child) => {
-            if (!child.isMesh || child.name.endsWith('_LODGroup') || child.parent?.name.endsWith('_LODGroup')) return;
-
-            const name = child.name.toLowerCase();
-            let lodOptions = { ...defaultLODOptions };
-
-            if (name.includes('roads') || name.includes('plane') || (child.material.name && child.material.name.toLowerCase().includes('road'))) {
-                lodOptions = {
-                    allowCulling: false,
-                    lodDistances: { high: 200, medium: 500, low: 1000, cull: 2000 }
-                };
-            } else if (name.includes('building') || name.includes('structure') || name.includes('house') || name.includes('tower')) {
-                lodOptions = {
-                    lodDistances: { high: 40, medium: 100, low: 200, cull: 400 }
-                };
-            } else if (name.includes('detail') || name.includes('decoration') || name.includes('prop') || name.includes('ornament')) {
-                lodOptions = {
-                    lodDistances: { high: 30, medium: 80, low: 150, cull: 300 }
-                };
-            } else if (name.includes('ground') || name.includes('terrain') || name.includes('landscape')) {
-                lodOptions = {
-                    allowCulling: false,
-                    lodDistances: { high: 100, medium: 300, low: 600, cull: 1200 }
-                };
-            }
-
-            try {
-                this.registerObjectGroupFromGLTF(child, lodOptions);
-            } catch (error) {
-                console.warn(`LOD registration failed for ${child.name}:`, error);
-            }
-        });
-    }
-
-    registerObject(objectGroup, options = {}) {
-        const id = objectGroup.uuid;
-
-        const lodData = {
-            group: objectGroup,
-            meshes: {
-                high: objectGroup.getObjectByName('high'),
-                medium: objectGroup.getObjectByName('medium'),
-                low: objectGroup.getObjectByName('low'),
-            },
-            lodDistances: options.lodDistances || {
-                high: 25,
-                medium: 75,
-                low: 150,
-                cull: 300
-            },
-            currentLOD: null,
-            allowCulling: options.allowCulling !== false
-        };
-
-        this.objectCache.set(id, lodData);
-        return id;
-    }
-
-    update() {
-        this.updateCameraFrustum();
-
-        for (const [id, lodData] of this.objectCache) {
-            this.processLODGroup(lodData);
-        }
-    }
-
-    updateCameraFrustum() {
-        this.cameraMatrix.multiplyMatrices(
-            this.camera.projectionMatrix,
-            this.camera.matrixWorldInverse
-        );
-        this.frustum.setFromProjectionMatrix(this.cameraMatrix);
-    }
-
-    processLODGroup(lodData) {
-        const group = lodData.group;
-        const position = new THREE.Vector3();
-        group.getWorldPosition(position);
-
-        const distance = this.camera.position.distanceTo(position);
-
-        let lod = 'high';
-        if (distance > lodData.lodDistances.cull) {
-            group.visible = false;
-            return;
-        } else if (distance > lodData.lodDistances.low) {
-            lod = 'low';
-        } else if (distance > lodData.lodDistances.medium) {
-            lod = 'medium';
-        }
-
-        const currentMesh = lodData.meshes[lod];
-        if (!currentMesh) return;
-
-        if (lodData.allowCulling && !this.frustum.intersectsObject(currentMesh)) {
-            group.visible = false;
-            return;
-        }
-
-        group.visible = true;
-
-        if (lod !== lodData.currentLOD) {
-            this.applyLODVisibility(lodData, lod);
-            lodData.currentLOD = lod;
-        }
-    }
-
-    applyLODVisibility(lodData, targetLOD) {
-        const meshes = lodData.meshes;
-        for (const level in meshes) {
-            if (meshes[level]) {
-                meshes[level].visible = (level === targetLOD);
-            }
-        }
-    }
-
-    unregisterObject(objectGroup) {
-        this.objectCache.delete(objectGroup.uuid);
-    }
-
-    dispose() {
-        this.objectCache.clear();
-    }
-}
-
-
-
-
-class SafeTextureLODManager {
-    constructor() {
-        this.processedTextures = new Set();
-        this.currentLOD = 'high';
-    }
-
-    // More conservative texture processing
-    async processGLTFTextures(gltfScene, options = {}) {
-        const {
-            enableLODs = true,
-            maxTextureSize = 1024, // Can be changed to 512 for less memory pressure
-            compressionQuality = 0.8
-        } = options;
-
-        console.log('Processing GLTF textures...');
-
-        // Process materials more safely
-        gltfScene.traverse((child) => {
-            if (child.isMesh && child.material) {
-                const materials = Array.isArray(child.material) ? child.material : [child.material];
-
-                materials.forEach(material => {
-                    // Process ALL material types that support textures
-                    if (this.isSupportedMaterial(material)) {
-                        this.optimizeMaterial(material, maxTextureSize, compressionQuality);
-                    }
-                });
-            }
-        });
-
-        console.log('Texture processing complete');
-    }
-
-    // Check if material type supports texture optimization
-    isSupportedMaterial(material) {
-        return (
-            material.isMeshStandardMaterial ||
-            material.isMeshBasicMaterial ||
-            material.isMeshPhysicalMaterial ||
-            material.isMeshLambertMaterial ||
-            material.isMeshPhongMaterial
-        );
-    }
-
-    optimizeMaterial(material, maxSize, quality) {
-        // Extended list of texture properties for different material types
-        const textureProperties = [
-            'map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap',
-            'bumpMap', 'displacementMap', 'aoMap', 'lightMap', 'envMap',
-            // MeshPhysicalMaterial specific properties
-            'clearcoatMap', 'clearcoatNormalMap', 'clearcoatRoughnessMap',
-            'transmissionMap', 'thicknessMap', 'sheenColorMap', 'sheenRoughnessMap',
-            'specularIntensityMap', 'specularColorMap', 'iridescenceMap', 'iridescenceThicknessMap'
-        ];
-
-        textureProperties.forEach(prop => {
-            if (material[prop] && !this.processedTextures.has(material[prop])) {
-                try {
-                    material[prop] = this.optimizeTexture(material[prop], maxSize, quality);
-                    this.processedTextures.add(material[prop]);
-                } catch (error) {
-                    console.warn(`Failed to optimize ${prop} texture:`, error);
-                }
-            }
-        });
-    }
-
-    optimizeTexture(texture, maxSize, quality) {
-        if (!texture.image || !texture.image.width) {
-            return texture;
-        }
-
-        const { width, height } = texture.image;
-
-        // Only resize if texture is larger than maxSize
-        if (width <= maxSize && height <= maxSize) {
-            return texture;
-        }
-
-        try {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-
-            const scale = Math.min(maxSize / width, maxSize / height);
-            canvas.width = Math.floor(width * scale);
-            canvas.height = Math.floor(height * scale);
-
-            ctx.drawImage(texture.image, 0, 0, canvas.width, canvas.height);
-
-            const optimizedTexture = new THREE.CanvasTexture(canvas);
-
-            // Copy all texture properties to maintain compatibility
-            this.copyTextureProperties(texture, optimizedTexture);
-
-            return optimizedTexture;
-        } catch (error) {
-            console.warn('Texture optimization failed, using original:', error);
-            return texture;
-        }
-    }
-
-    copyTextureProperties(source, target) {
-        const propertiesToCopy = [
-            'wrapS', 'wrapT', 'minFilter', 'magFilter', 'colorSpace',
-            'flipY', 'premultiplyAlpha', 'unpackAlignment', 'encoding',
-            'generateMipmaps', 'anisotropy', 'offset', 'repeat', 'center', 'rotation'
-        ];
-
-        propertiesToCopy.forEach(prop => {
-            if (source[prop] !== undefined) {
-                try {
-                    target[prop] = source[prop];
-                } catch (error) {
-                    console.warn(`Failed to copy texture property ${prop}:`, error);
-                }
-            }
-        });
-
-        // Handle Vector2 properties separately
-        if (source.offset) target.offset.copy(source.offset);
-        if (source.repeat) target.repeat.copy(source.repeat);
-        if (source.center) target.center.copy(source.center);
-    }
-}
-
-function setupOptimizedTextureSystem(gltfScene, scene, camera) {
-    const safeTextureLOD = new SafeTextureLODManager();
-
-    // Store references for distance-based optimization
-    const meshes = [];
-    const originalTextures = new Map();
-    const lowResTextures = new Map();
-
-    // Collect all meshes and store texture references
-    gltfScene.traverse((child) => {
-        if (child.isMesh && child.material) {
-            meshes.push({ mesh: child, position: child.getWorldPosition(new THREE.Vector3()) });
-
-            const materials = Array.isArray(child.material) ? child.material : [child.material];
-            materials.forEach(material => {
-                if (safeTextureLOD.isSupportedMaterial(material)) {
-                    // Store original textures
-                    const textureProps = ['map', 'normalMap', 'roughnessMap', 'metalnessMap'];
-                    textureProps.forEach(prop => {
-                        if (material[prop] && !originalTextures.has(material[prop])) {
-                            originalTextures.set(material[prop], material[prop]);
-                            // Create low-res version
-                            const lowRes = safeTextureLOD.optimizeTexture(material[prop], 256, 0.6);
-                            lowResTextures.set(material[prop], lowRes);
-                        }
-                    });
-                }
-            });
-        }
-    });
-
-    // Process textures with error handling
-    safeTextureLOD.processGLTFTextures(gltfScene, {
-        enableLODs: true,
-        maxTextureSize: 1024,
-        compressionQuality: 0.8
-    }).catch(error => {
-        console.error('Texture processing error:', error);
-    });
-
-    // Return distance-based quality update function
-    return function updateTextureQuality() {
-        const cameraPosition = camera.position;
-        const HIGH_QUALITY_DISTANCE = 25;
-        const LOW_QUALITY_DISTANCE = 100;
-
-        meshes.forEach(({ mesh }) => {
-            try {
-                // Get current world position
-                const meshPosition = mesh.getWorldPosition(new THREE.Vector3());
-                const distance = cameraPosition.distanceTo(meshPosition);
-
-                const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-                materials.forEach(material => {
-                    if (safeTextureLOD.isSupportedMaterial(material)) {
-                        const useHighRes = distance < HIGH_QUALITY_DISTANCE;
-                        const useLowRes = distance > LOW_QUALITY_DISTANCE;
-
-                        const textureProps = ['map', 'normalMap', 'roughnessMap', 'metalnessMap'];
-                        textureProps.forEach(prop => {
-                            if (material[prop]) {
-                                const original = originalTextures.get(material[prop]);
-                                const lowRes = lowResTextures.get(material[prop]);
-
-                                if (useHighRes && original) {
-                                    material[prop] = original;
-                                } else if (useLowRes && lowRes) {
-                                    material[prop] = lowRes;
-                                }
-                            }
-                        });
-                    }
-                });
-            } catch (error) {
-                console.warn('Error updating mesh texture quality:', error);
-            }
-        });
-    };
-}
-
-function isFogCompatibleMaterial(material) {
-    return (
-        material.isMeshStandardMaterial ||
-        material.isMeshBasicMaterial ||
-        material.isMeshPhysicalMaterial ||
-        material.isMeshLambertMaterial ||
-        material.isMeshPhongMaterial
-    );
-}
-
-class MaterialModeManager {
-    constructor() {
-        this.originalMaterials = new Map();
-        this.isMonochromatic = false;
-        this.monochromaticMaterial = null;
-    }
-    
-    createMonochromaticMaterial() {
-        const material = new THREE.MeshStandardMaterial({
-            color: 0xf0f0f0,
-            roughness: 0.9,
-            metalness: 0.0,
-            fog: true
-        });
-        
-        // Apply the same shader modification as other materials
-        material.onBeforeCompile = shaderModifier;
-        
-        return material;
-    }
-    
-    storeMaterialsFromMesh(mesh) {
-        if (!mesh.material || this.originalMaterials.has(mesh.uuid)) return;
-        
-        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-        this.originalMaterials.set(mesh.uuid, {
-            materials: materials.map(m => m),  // Store references, not clones
-            isArray: Array.isArray(mesh.material)
-        });
-    }
-    
-    toggleMonochromatic(scene) {
-        this.isMonochromatic = !this.isMonochromatic;
-        
-        if (!this.monochromaticMaterial) {
-            this.monochromaticMaterial = this.createMonochromaticMaterial();
-        }
-        
-        scene.traverse((child) => {
-            if (child.isMesh && child.material) {
-                // Skip the skybox
-                if (child.geometry?.type === 'SphereGeometry' && 
-                    child.material?.side === THREE.BackSide) {
-                    return;
-                }
-                // Skip wireframe objects
-                if (child.material.wireframe) {
-                    return;
-                }
-                
-                // Store original materials on first run
-                this.storeMaterialsFromMesh(child);
-                
-                const materialData = this.originalMaterials.get(child.uuid);
-                if (!materialData) return;
-                
-                if (this.isMonochromatic) {
-                    // Apply monochromatic material
-                    if (materialData.isArray) {
-                        child.material = new Array(materialData.materials.length).fill(this.monochromaticMaterial);
-                    } else {
-                        child.material = this.monochromaticMaterial;
-                    }
-                } else {
-                    // Restore original materials
-                    child.material = materialData.isArray ? materialData.materials : materialData.materials[0];
-                }
-            }
-        });
-    }
-}
+import { setupCustomFogShaders, createShaderModifier } from './shaders/FogShaderSetup.js';
 
 function main() {
     setupCustomFogShaders();
@@ -720,686 +33,6 @@ function main() {
 
     let cameraEuler = new Euler(0, 0, 0, 'YXZ');
 
-    const PopupManager = {
-        overlay: document.getElementById('popup'),
-        container: document.querySelector('.popup-container'),
-        title: document.getElementById('popup-title'),
-        content: document.getElementById('popup-content'),
-
-        loadingPopupActive: false,
-        currentTab: 'instructions',
-        
-        popUpActive: false,
-        currentImageIndex: 0,
-        currentImages: [],
-        currentLocation: null,
-        autoplayInterval: null,
-        autoplayEnabled: false,
-        autoplayDuration: 3000,
-        showThumbnails: false,
-        transitionType: 'fade',
-        
-        imageManifest: null,
-        tiffCache: new Map(),
-
-        audio: new Audio(),
-
-        
-        
-        async init() {
-            try {
-                const response = await fetch('../public/js/imageManifest.json');
-                this.imageManifest = await response.json();
-                console.log('Image manifest loaded:', this.imageManifest);
-                console.log(`Version: ${this.imageManifest.version}, Updated: ${this.imageManifest.updated}`);
-            } catch (error) {
-                console.error('Could not load image manifest:', error);
-                this.imageManifest = { locations: [] };
-            }
-        },
-        
-        getLocationData(locationId) {
-            if (this.imageManifest && this.imageManifest.locations) {
-                return this.imageManifest.locations.find(loc => loc.id === locationId);
-            }
-            return null;
-        },
-        
-        async convertTiffToCanvas(url) {
-            if (this.tiffCache.has(url)) {
-                return this.tiffCache.get(url);
-            }
-            
-            try {
-                const response = await fetch(url);
-                const arrayBuffer = await response.arrayBuffer();
-                
-                const ifds = UTIF.decode(arrayBuffer);
-                if (ifds.length === 0) throw new Error('No images found in TIFF');
-                
-                const ifd = ifds[0];
-                UTIF.decodeImage(arrayBuffer, ifd);
-                
-                const canvas = document.createElement('canvas');
-                canvas.width = ifd.width;
-                canvas.height = ifd.height;
-                const ctx = canvas.getContext('2d');
-                
-                const rgba = UTIF.toRGBA8(ifd);
-                
-                const imageData = new ImageData(new Uint8ClampedArray(rgba.buffer), ifd.width, ifd.height);
-                ctx.putImageData(imageData, 0, 0);
-                
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-                
-                this.tiffCache.set(url, dataUrl);
-                
-                return dataUrl;
-            } catch (error) {
-                console.error('Error converting TIFF:', error);
-                return '../public/images/placeholder.png';
-            }
-        },
-        
-        async processImageSource(imageData) {
-            if (imageData.type === 'tiff' || imageData.src.toLowerCase().endsWith('.tif') || imageData.src.toLowerCase().endsWith('.tiff')) {
-                return await this.convertTiffToCanvas(imageData.src);
-            }
-            return imageData.src;
-        },
-        
-        show: function (title = 'Popup', content = '') {
-            this.title.textContent = title;
-            this.content.innerHTML = content;
-            
-            this.overlay.style.display = 'block';
-            setTimeout(() => {
-                this.overlay.classList.add('show');
-                this.container.classList.add('show');
-            }, 10);
-            
-            document.body.style.overflow = 'hidden';
-            document.body.style.cursor = 'default';
-            
-            this.initializeCarousel();
-            this.initializeAudio();
-            
-            if (this.autoplayEnabled && this.currentImages.length > 1) {
-                this.startAutoplay();
-            }
-        },
-        
-        hide: function () {
-            this.overlay.classList.remove('show');
-            this.container.classList.remove('show');
-            
-            setTimeout(() => {
-                this.overlay.style.display = 'none';
-            }, 300);
-            
-            document.body.style.overflow = 'auto';
-            document.body.style.cursor = 'none';
-            
-            this.stopAutoplay();
-
-            if (this.audio) {
-                this.audio.pause();
-                this.audio.currentTime = 0;
-            }
-            
-            this.currentImageIndex = 0;
-            this.currentImages = [];
-            this.currentLocation = null;
-            this.removeCarouselListeners();
-        },
-
-        initializeAudio: function() {
-            
-            const locationData = this.getLocationData(this.currentLocation);
-            
-            if (!locationData || !locationData.audio) {
-                console.log('No audio data found for location');
-                return;
-            }
-
-            const audioContainer = this.content.querySelector('.audio-player-container');
-            console.log('Audio container found:', !!audioContainer);
-            
-            if (!audioContainer) {
-                console.log('Audio container not found in DOM');
-                return;
-            }
-
-            this.audio.src = locationData.audio[0].src;
-
-            const playButton = audioContainer.querySelector('.audio-controls.play');
-            const pauseButton = audioContainer.querySelector('.audio-controls.pause');
-
-            if (playButton && pauseButton) {
-
-                playButton.removeEventListener('click', this.playAudio);
-                pauseButton.removeEventListener('click', this.pauseAudio);
-                
-                this.playAudio = () => {
-                    console.log('Play button clicked');
-                    console.log('Audio src:', this.audio.src);
-                    console.log('Audio readyState:', this.audio.readyState);
-
-                    if (!this.audio.src) {
-                        console.error('No audio source set');
-                        return;
-                    }
-
-                    const playPromise = this.audio.play();
-                    
-                    if (playPromise !== undefined) {
-                        playPromise
-                            .then(() => {
-                                console.log('Audio playing successfully');
-                                playButton.style.display = 'none';
-                                pauseButton.style.display = 'inline-block';
-                            })
-                            .catch(error => {
-                                console.error('Error playing audio:', error);
-                            });
-                    }
-                };
-
-                this.pauseAudio = () => {
-                    console.log('Pause button clicked');
-                    this.audio.pause();
-
-                    playButton.style.display = 'inline-block';
-                    pauseButton.style.display = 'none';
-                };
-
-                playButton.addEventListener('click', this.playAudio);
-                pauseButton.addEventListener('click', this.pauseAudio);
-
-                playButton.style.display = 'inline-block';
-                pauseButton.style.display = 'none';
-                
-                this.audio.addEventListener('play', () => {
-                    playButton.style.display = 'none';
-                    pauseButton.style.display = 'inline-block';
-                });
-                
-                this.audio.addEventListener('pause', () => {
-                    playButton.style.display = 'inline-block';
-                    pauseButton.style.display = 'none';
-                });
-                
-                this.audio.addEventListener('ended', () => {
-                    playButton.style.display = 'inline-block';
-                    pauseButton.style.display = 'none';
-                });
-            }
-        },
-
-        generateAudioHTML: function(locationData) {
-            if (!locationData.audio) return '';
-            
-            return `
-                <div class="audio-player-container">
-                    <div class="audio-info">
-                        <span class="audio-title">${locationData.audio[0].title || 'Audio'}</span>
-                    </div>
-                    <div class="audio-controls-wrapper">
-                        <button class="audio-controls play" title="Play">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M8 5v14l11-7z"/>
-                            </svg>
-                        </button>
-                        <button class="audio-controls pause" title="Pause" style="display: none;">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            `;
-        },
-        
-        initializeCarousel: function() {
-            const carouselContainer = this.content.querySelector('.carousel-container');
-            if (!carouselContainer) return;
-            
-            carouselContainer.classList.toggle('slide-transition', this.transitionType === 'slide');
-            
-            this.currentImages = Array.from(carouselContainer.querySelectorAll('.carousel-image'));
-            if (this.currentImages.length <= 1) return;
-            
-            const prevBtn = carouselContainer.querySelector('.carousel-nav.prev');
-            const nextBtn = carouselContainer.querySelector('.carousel-nav.next');
-            
-            if (prevBtn && nextBtn) {
-                this.prevBtnHandler = () => this.previousImage();
-                this.nextBtnHandler = () => this.nextImage();
-                
-                prevBtn.addEventListener('click', this.prevBtnHandler);
-                nextBtn.addEventListener('click', this.nextBtnHandler);
-            }
-            
-            const indicators = carouselContainer.querySelectorAll('.carousel-indicator');
-            indicators.forEach((indicator, index) => {
-                indicator.addEventListener('click', () => this.showImage(index));
-            });
-            
-            this.keyboardHandler = (e) => {
-                if (e.key === 'ArrowLeft') this.previousImage();
-                if (e.key === 'ArrowRight') this.nextImage();
-            };
-            document.addEventListener('keydown', this.keyboardHandler);
-            
-            if (this.showThumbnails) {
-                this.setupThumbnails();
-            }
-            
-            this.loadTiffImages();
-            
-            this.showImage(0);
-        },
-        
-        async loadTiffImages() {
-            if (!this.currentLocation || !window.UTIF) return;
-            
-            const locationData = this.getLocationData(this.currentLocation);
-            if (!locationData || !locationData.images) return;
-            
-            for (let i = 0; i < locationData.images.length; i++) {
-                const imageData = locationData.images[i];
-                const imgElement = this.currentImages[i];
-                
-                if (!imgElement) continue;
-                
-                if (imageData.type === 'tiff' || imageData.src.toLowerCase().match(/\.tiff?$/)) {
-                    imgElement.style.opacity = '0.5';
-                    
-                    try {
-                        const processedSrc = await this.processImageSource(imageData);
-                        imgElement.src = processedSrc;
-                        imgElement.style.opacity = '';
-                    } catch (error) {
-                        console.error('Error loading TIFF:', error);
-                        imgElement.src = '../public/images/placeholder.png';
-                    }
-                }
-            }
-        },
-        
-        setupThumbnails: function() {
-            const carouselContainer = this.content.querySelector('.carousel-container');
-            if (!carouselContainer) return;
-            
-            const thumbnailContainer = carouselContainer.querySelector('.carousel-thumbnails');
-            if (thumbnailContainer) {
-                thumbnailContainer.classList.toggle('active', this.showThumbnails);
-                
-                const thumbnails = thumbnailContainer.querySelectorAll('.carousel-thumbnail');
-                thumbnails.forEach((thumb, index) => {
-                    thumb.addEventListener('click', () => this.showImage(index));
-                });
-            }
-        },
-        
-        startAutoplay: function() {
-            if (!this.autoplayEnabled || this.currentImages.length <= 1) return;
-            
-            this.stopAutoplay();
-            
-            const progressBar = this.content.querySelector('.carousel-progress');
-            if (progressBar) {
-                progressBar.style.transitionDuration = `${this.autoplayDuration}ms`;
-                progressBar.classList.add('active');
-            }
-            
-            this.autoplayInterval = setInterval(() => {
-                if (this.currentImageIndex < this.currentImages.length - 1) {
-                    this.nextImage();
-                } else {
-                    this.showImage(0);
-                }
-            }, this.autoplayDuration);
-        },
-        
-        stopAutoplay: function() {
-            if (this.autoplayInterval) {
-                clearInterval(this.autoplayInterval);
-                this.autoplayInterval = null;
-            }
-            
-            const progressBar = this.content.querySelector('.carousel-progress');
-            if (progressBar) {
-                progressBar.classList.remove('active');
-                progressBar.style.transitionDuration = '0ms';
-            }
-        },
-        
-        removeCarouselListeners: function() {
-            if (this.keyboardHandler) {
-                document.removeEventListener('keydown', this.keyboardHandler);
-                this.keyboardHandler = null;
-            }
-            
-            const carouselContainer = this.content.querySelector('.carousel-container');
-            if (carouselContainer) {
-                const prevBtn = carouselContainer.querySelector('.carousel-nav.prev');
-                const nextBtn = carouselContainer.querySelector('.carousel-nav.next');
-                
-                if (prevBtn && this.prevBtnHandler) {
-                    prevBtn.removeEventListener('click', this.prevBtnHandler);
-                }
-                if (nextBtn && this.nextBtnHandler) {
-                    nextBtn.removeEventListener('click', this.nextBtnHandler);
-                }
-            }
-        },
-        
-        showImage: function(index) {
-            if (!this.currentImages.length) return;
-            
-            if (this.autoplayEnabled) {
-                this.startAutoplay();
-            }
-            
-            if (this.transitionType === 'slide') {
-                this.currentImages.forEach((img, i) => {
-                    img.classList.remove('active', 'prev');
-                    if (i < index) img.classList.add('prev');
-                    else if (i === index) img.classList.add('active');
-                });
-            } else {
-                this.currentImages.forEach((img, i) => {
-                    img.classList.toggle('active', i === index);
-                });
-            }
-            
-            const indicators = this.content.querySelectorAll('.carousel-indicator');
-            indicators.forEach((indicator, i) => {
-                indicator.classList.toggle('active', i === index);
-            });
-            
-            const thumbnails = this.content.querySelectorAll('.carousel-thumbnail');
-            thumbnails.forEach((thumb, i) => {
-                thumb.classList.toggle('active', i === index);
-            });
-            
-            const captionElement = this.content.querySelector('.carousel-caption');
-            if (captionElement) {
-                const activeImage = this.currentImages[index];
-                const caption = activeImage.dataset.caption || '';
-                captionElement.textContent = caption;
-            }
-            
-            const prevBtn = this.content.querySelector('.carousel-nav.prev');
-            const nextBtn = this.content.querySelector('.carousel-nav.next');
-            
-            if (prevBtn) prevBtn.disabled = index === 0;
-            if (nextBtn) nextBtn.disabled = index === this.currentImages.length - 1;
-            
-            this.currentImageIndex = index;
-        },
-        
-        nextImage: function() {
-            if (this.currentImageIndex < this.currentImages.length - 1) {
-                this.showImage(this.currentImageIndex + 1);
-            }
-        },
-        
-        previousImage: function() {
-            if (this.currentImageIndex > 0) {
-                this.showImage(this.currentImageIndex - 1);
-            }
-        },
-        
-        async generatePopupFromLocation(locationId) {
-            const locationData = this.getLocationData(locationId);
-            
-            if (!locationData) {
-                console.warn(`No data found for location: ${locationId}`);
-                this.show('Information', '<p>No information available for this location.</p>');
-                return;
-            }
-            
-            this.currentLocation = locationId;
-            let content = '';
-            
-            if (locationData.description) {
-                content += `<p>${locationData.description}</p>`;
-            }
-            
-            if (locationData.images && locationData.images.length > 0) {
-                content += '<div class="carousel-container">';
-                
-                content += '<div class="carousel-loading">Loading images...</div>';
-                
-                content += '<div class="carousel-image-wrapper">';
-                
-                if (locationData.images.length > 1) {
-                    content += '<button class="carousel-nav prev" aria-label="Previous image"></button>';
-                    content += '<button class="carousel-nav next" aria-label="Next image"></button>';
-                }
-                
-                for (let i = 0; i < locationData.images.length; i++) {
-                    const img = locationData.images[i];
-                    const isActive = i === 0 ? 'active' : '';
-                    
-                    const isTiff = img.type === 'tiff' || img.src.toLowerCase().match(/\.tiff?$/);
-                    const initialSrc = isTiff ? '../public/images/placeholder.png' : img.src;
-                    
-                    content += `<img class="carousel-image ${isActive}" 
-                        src="${initialSrc}" 
-                        alt="${img.alt || ''}"
-                        data-caption="${img.caption || ''}"
-                        data-index="${i}"
-                        onerror="this.src='../public/images/placeholder.png'"
-                        onload="this.parentElement.parentElement.querySelector('.carousel-loading').style.display='none'">`;
-                }
-                
-                content += '</div>';
-                
-                if (locationData.images.length > 1) {
-                    content += '<div class="carousel-indicators">';
-                    for (let i = 0; i < locationData.images.length; i++) {
-                        const isActive = i === 0 ? 'active' : '';
-                        content += `<span class="carousel-indicator ${isActive}" data-index="${i}"></span>`;
-                    }
-                    content += '</div>';
-                    
-                    content += '<div class="carousel-progress"></div>';
-                }
-                
-                if (locationData.images.length > 1) {
-                    content += '<div class="carousel-thumbnails">';
-                    for (let i = 0; i < locationData.images.length; i++) {
-                        const img = locationData.images[i];
-                        const isActive = i === 0 ? 'active' : '';
-                        content += `<div class="carousel-thumbnail ${isActive}" data-index="${i}">
-                            <img src="${img.src}" alt="${img.alt || ''}">
-                        </div>`;
-                    }
-                    content += '</div>';
-                }
-                
-                content += '<div class="carousel-caption"></div>';
-                
-                content += '</div>';
-            }
-            
-            if (locationData.html) {
-                content += locationData.html;
-            }
-
-            if (locationData.audio) {
-                content += this.generateAudioHTML(locationData);
-            }
-            
-            this.show(locationData.title, content);
-        },
-        switchTab: function(tabName) {
-                this.currentTab = tabName;
-                
-                // Update tab buttons
-                const tabs = document.querySelectorAll('.popup-tab');
-                tabs.forEach(tab => {
-                    tab.classList.toggle('active', tab.dataset.tab === tabName);
-                });
-                
-                // Update tab content
-                const contents = document.querySelectorAll('.popup-tab-content');
-                contents.forEach(content => {
-                    content.classList.toggle('active', content.dataset.tab === tabName);
-                });
-            },
-
-            showLoadingPopup: function() {
-                this.loadingPopupActive = true;
-                
-                const loadingContent = `
-                    <div class="popup-tabs">
-                        <button class="popup-tab active" data-tab="instructions" onclick="PopupManager.switchTab('instructions')">
-                            Instructions
-                        </button>
-                        <button class="popup-tab" data-tab="history" onclick="PopupManager.switchTab('history')">
-                            History
-                        </button>
-                        <button class="popup-tab" data-tab="credits" onclick="PopupManager.switchTab('credits')">
-                            Credits
-                        </button>
-                    </div>
-                    
-                    <div class="loading-progress">
-                        <div>Loading Virtual Fairgrounds Model...</div>
-                        <div class="loading-bar">
-                            <div class="loading-bar-fill" id="loading-bar-fill"></div>
-                        </div>
-                        <div class="loading-percentage" id="loading-percentage">0%</div>
-                    </div>
-                    
-                    <div class="popup-tab-content active" data-tab="instructions">
-                        <h3>How to Navigate the Virtual Fairgrounds</h3>
-                        <p><strong>Movement Controls:</strong></p>
-                        <ul style="line-height: 1.8;">
-                            <li><strong>W, A, S, D</strong> or <strong>Arrow Keys</strong> - Move forward, left, backward, and right</li>
-                            <li><strong>Mouse</strong> - Look around and change your view direction</li>
-                            <li><strong>Q & E</strong> - Rotate camera when in GUI mode</li>
-                            <li><strong>F</strong> - Interact with locations when you see the prompt</li>
-                            <li><strong>ESC</strong> - Pause and show menu</li>
-                            <li><strong>M</strong> - Toggle monochromatic mode</li>
-                            <li><strong>Middle Mouse Button</strong> - Toggle GUI mode for settings</li>
-                        </ul>
-                        
-                        <p><strong>Exploration Tips:</strong></p>
-                        <ul style="line-height: 1.8;">
-                            <li>Look for the green interaction prompts near historic buildings</li>
-                            <li>Stay within the green boundary markers</li>
-                            <li>Visit the East Side Theater ticket booth to learn more about the neighborhood</li>
-                            <li>Each location has historical photos and audio recordings to discover</li>
-                        </ul>
-                    </div>
-                    
-                    <div class="popup-tab-content" data-tab="history">
-                        <h3>The Fairgrounds Neighborhood (1955)</h3>
-                        <p>Welcome to a digital recreation of Oklahoma City's historic Fairgrounds District, a vibrant African American community that thrived in the mid-20th century.</p>
-                        
-                        <p><strong>About the Neighborhood:</strong></p>
-                        <p>The Fairgrounds neighborhood, also known as part of Deep Deuce, was bounded by NE 8th Street to the north and the Rock Island railroad tracks to the south. This densely populated area was home to a thriving Black community, with Bath Avenue serving as its commercial heart.</p>
-                        
-                        <p><strong>Key Locations You'll Explore:</strong></p>
-                        <ul style="line-height: 1.8;">
-                            <li><strong>East Side Theater (720-722 Bath Avenue)</strong> - The crown jewel of the district, opened in 1946</li>
-                            <li><strong>Bill's Cleaners (718 Bath)</strong> - A long-running business that operated until 1973</li>
-                            <li><strong>Domino Parlor (714 Bath)</strong> - A popular social gathering spot for men</li>
-                            <li><strong>Melody Records (710B Bath)</strong> - The heart of the local music scene</li>
-                        </ul>
-                        
-                        <p><strong>Urban Renewal Impact:</strong></p>
-                        <p>This virtual preservation captures the neighborhood before urban renewal programs of the 1960s-70s led to widespread demolition. Today, this 3D environment serves as a bridge between past and present, preserving the memories and stories of a community that was physically erased but lives on in the hearts of those who remember.</p>
-                    </div>
-                    
-                    <div class="popup-tab-content" data-tab="credits">
-                        <h3>Virtual Fairgrounds Project Credits</h3>
-                        
-                        <p><strong>A Collaboration Between:</strong></p>
-                        <ul style="line-height: 1.8;">
-                            <li>Metropolitan Library System</li>
-                            <li>Drone's Eye View (DEV) Limited</li>
-                        </ul>
-                        
-                        <p><strong>Project Team:</strong></p>
-                        <ul style="line-height: 1.8;">
-                            <li><strong>Bobby Reed</strong> - Lead Developer & Technical Director</li>
-                            <li><strong>Judith Matthews</strong> - Project Visionary & Historical Consultant</li>
-                            <li><strong>Metropolitan Library System Special Collections</strong> - Archival Materials</li>
-                        </ul>
-                        
-                        <p><strong>Special Thanks To:</strong></p>
-                        <p>Sandra Richards, JW Sanford and family, Avis Franklin, Melba Holt, Kimberly Francisco, Kasey Jones-Matrona, George Melvin Richardson and family, Eloise Carbajal, Hobert Sutton, Huretta Walker Dobbs, Anita Arnold, Melva Franklin, and all the families, business owners, and patrons of the Fairgrounds Neighborhood.</p>
-                        
-                        <p><strong>Student Contributors:</strong></p>
-                        <ul style="line-height: 1.8;">
-                            <li><strong>xDarthx</strong> - Summer 2025 Intern</li>
-                            <li>Oklahoma City University Software Engineering Students</li>
-                        </ul>
-                        
-                        <p><strong>Technical Framework:</strong></p>
-                        <p>Built with Three.js, WebGL, and modern web technologies to ensure preservation and accessibility for future generations.</p>
-                        
-                        <p style="margin-top: 20px; font-style: italic; text-align: center;">
-                            "Preserving Oklahoma City's cultural heritage through immersive technology"
-                        </p>
-                    </div>
-                `;
-                
-                // Modify the overlay to add loading-popup class
-                this.overlay.classList.add('loading-popup');
-                
-                // Don't allow closing during loading
-                const originalCloseBtn = document.getElementById('popup-close-btn');
-                if (originalCloseBtn) {
-                    originalCloseBtn.style.display = 'none';
-                }
-                
-                // Update header for loading popup
-                this.show('Virtual Fairgrounds', loadingContent);
-                
-                // Add subtitle to header
-                const header = document.querySelector('.popup-header');
-                if (header && !header.querySelector('.popup-subtitle')) {
-                    const subtitle = document.createElement('p');
-                    subtitle.className = 'popup-subtitle';
-                    subtitle.textContent = 'Preserving Oklahoma City\'s Historic Fairgrounds Neighborhood';
-                    header.appendChild(subtitle);
-                }
-            },
-
-            // Add this method to update loading progress
-            updateLoadingProgress: function(percentage) {
-                const fillBar = document.getElementById('loading-bar-fill');
-                const percentText = document.getElementById('loading-percentage');
-                
-                if (fillBar) {
-                    fillBar.style.width = percentage + '%';
-                }
-                if (percentText) {
-                    percentText.textContent = percentage + '%';
-                }
-            },
-
-            // Add this method to hide loading popup
-            hideLoadingPopup: function() {
-                this.loadingPopupActive = false;
-                this.overlay.classList.remove('loading-popup');
-                
-                // Restore close button
-                const closeBtn = document.getElementById('popup-close-btn');
-                if (closeBtn) {
-                    closeBtn.style.display = '';
-                }
-                
-                this.hide();
-            }
-    };
     PopupManager.init().catch(console.error);
 
     PopupManager.showLoadingPopup();
@@ -1445,13 +78,13 @@ function main() {
     const scene = new THREE.Scene();
     const gui = new GUI({ title: 'Settings' });
     gui.close();
-    
+
     const debugFolder = gui.addFolder('Debug Visuals');
     const debugSettings = {
         showBoundaryBox: false,
         showPopupCircles: false,
-        
-        toggleBoundaryBox: function() {
+
+        toggleBoundaryBox: function () {
             if (this.showBoundaryBox) {
                 cameraBoundarySystem.createVisualization(scene);
             } else {
@@ -1460,8 +93,8 @@ function main() {
                 }
             }
         },
-        
-        togglePopupCircles: function() {
+
+        togglePopupCircles: function () {
             if (this.showPopupCircles) {
                 theaterSphere.createSphereRadius(scene);
                 cleanersSphere.createSphereRadius(scene);
@@ -1479,7 +112,7 @@ function main() {
     debugFolder.add(debugSettings, 'showBoundaryBox')
         .name('Show Boundary Box')
         .onChange(() => debugSettings.toggleBoundaryBox());
-        
+
     debugFolder.add(debugSettings, 'showPopupCircles')
         .name('Show Popup Circles')
         .onChange(() => debugSettings.togglePopupCircles());
@@ -1492,7 +125,7 @@ function main() {
 
         toggleMonochromatic() {
             materialModeManager.toggleMonochromatic(scene);
-            
+
             // Adjust lighting for monochromatic mode
             if (materialModeManager.isMonochromatic) {
                 scene.children.forEach(child => {
@@ -1513,7 +146,7 @@ function main() {
                 });
                 scene.fog.density = 0.005;
             }
-            
+
             // Update LOD materials if they exist
             if (window.cullingLODManager) {
                 window.cullingLODManager.objectCache.forEach((lodData) => {
@@ -1521,16 +154,16 @@ function main() {
                     for (const level in meshes) {
                         if (meshes[level]) {
                             materialModeManager.storeMaterialsFromMesh(meshes[level]);
-                            
+
                             const materialData = materialModeManager.originalMaterials.get(meshes[level].uuid);
                             if (materialData) {
                                 if (materialModeManager.isMonochromatic) {
-                                    meshes[level].material = materialData.isArray 
+                                    meshes[level].material = materialData.isArray
                                         ? new Array(materialData.materials.length).fill(materialModeManager.monochromaticMaterial)
                                         : materialModeManager.monochromaticMaterial;
                                 } else {
-                                    meshes[level].material = materialData.isArray 
-                                        ? materialData.materials 
+                                    meshes[level].material = materialData.isArray
+                                        ? materialData.materials
                                         : materialData.materials[0];
                                 }
                             }
@@ -1539,8 +172,8 @@ function main() {
                 });
             }
         },
-        
-        adjustBrightness: function() {
+
+        adjustBrightness: function () {
             if (materialModeManager.isMonochromatic && materialModeManager.monochromaticMaterial) {
                 const brightness = this.brightness;
                 const baseColor = 0.5 + (brightness * 0.5);
@@ -1566,14 +199,14 @@ function main() {
     // GUI Controls for the carousel (place this INSIDE main() after PopupManager)
     function setupCarouselGUI(gui) {
         const carouselFolder = gui.addFolder('Carousel Controls');
-        
+
         const carouselSettings = {
             autoplay: false,
             autoplayDuration: 3,
             showThumbnails: false,
             transitionType: 'fade',
-            
-            toggleAutoplay: function() {
+
+            toggleAutoplay: function () {
                 PopupManager.autoplayEnabled = this.autoplay;
                 if (PopupManager.popUpActive) {
                     if (this.autoplay) {
@@ -1583,36 +216,36 @@ function main() {
                     }
                 }
             },
-            
-            updateAutoplaySpeed: function() {
+
+            updateAutoplaySpeed: function () {
                 PopupManager.autoplayDuration = this.autoplayDuration * 1000;
                 if (PopupManager.autoplayEnabled && PopupManager.popUpActive) {
                     PopupManager.startAutoplay();
                 }
             },
-            
-            toggleThumbnails: function() {
+
+            toggleThumbnails: function () {
                 PopupManager.showThumbnails = this.showThumbnails;
                 if (PopupManager.popUpActive) {
                     PopupManager.setupThumbnails();
                 }
             },
-            
-            updateTransition: function() {
+
+            updateTransition: function () {
                 PopupManager.transitionType = this.transitionType;
                 const container = document.querySelector('.carousel-container');
                 if (container) {
                     container.classList.toggle('slide-transition', this.transitionType === 'slide');
                 }
             },
-            
-            reloadManifest: async function() {
+
+            reloadManifest: async function () {
                 await PopupManager.init();
                 console.log('Image manifest reloaded');
                 alert('Image manifest reloaded successfully!');
             },
-            
-            checkTiffSupport: function() {
+
+            checkTiffSupport: function () {
                 if (window.UTIF) {
                     console.log('✅ TIFF support is loaded');
                     alert('TIFF support is available!');
@@ -1622,33 +255,33 @@ function main() {
                 }
             }
         };
-        
+
         carouselFolder.add(carouselSettings, 'autoplay')
             .name('Enable Autoplay')
             .onChange(() => carouselSettings.toggleAutoplay());
-        
+
         carouselFolder.add(carouselSettings, 'autoplayDuration', 1, 10, 0.5)
             .name('Autoplay Speed (sec)')
             .onChange(() => carouselSettings.updateAutoplaySpeed());
-        
+
         carouselFolder.add(carouselSettings, 'showThumbnails')
             .name('Show Thumbnails')
             .onChange(() => carouselSettings.toggleThumbnails());
-        
+
         carouselFolder.add(carouselSettings, 'transitionType', ['fade', 'slide'])
             .name('Transition Type')
             .onChange(() => carouselSettings.updateTransition());
-        
+
         carouselFolder.add(carouselSettings, 'reloadManifest').name('Reload Images');
         carouselFolder.add(carouselSettings, 'checkTiffSupport').name('Check TIFF Support');
-        
+
         //carouselFolder.open();
     }
 
     // Updated interact listener (place this INSIDE main() after all the sphere creations)
     const interactListener = function (event) {
         if (isGUIMode || instructionsActive) return;
-        
+
         switch (event.code) {
             case 'KeyF':
                 console.log('Interacted!');
@@ -1682,7 +315,7 @@ function main() {
                     controls.unlock();
                     event.preventDefault();
                     break;
-                }  else if (southEndSphere.cameraInside) {
+                } else if (southEndSphere.cameraInside) {
                     PopupManager.popUpActive = true;
                     PopupManager.generatePopupFromLocation('southEnd');
                     controls.unlock();
@@ -1780,7 +413,7 @@ function main() {
         console.log('controls have been locked');
     })
     //Really can't remember. Maybe xDarthx Knows. Commenting the line below because itis flagging an error and I'm not sure it is necessary.
-        //scene.add(controls.object);
+    //scene.add(controls.object);
 
 
     // This is to toggle the GUI mode so that you can use your mouse to mess with the GUI
@@ -1980,7 +613,7 @@ function main() {
             case 'ArrowLeft':
                 rotateRight = false;  // Was: rotateLeft = false
                 break;
-                    }
+        }
     };
 
     document.addEventListener('keydown', onKeyDown);
@@ -2069,7 +702,7 @@ function main() {
                 cameraBoundarySystem.rotationParams.z = (value * Math.PI) / 180;
                 cameraBoundarySystem.updateRotation();
             });
-       // boundaryFolder.open();
+        // boundaryFolder.open();
     }
 
     // Intersection pop Circles!
@@ -2181,7 +814,7 @@ function main() {
         const lightFolder = gui.addFolder('Light');
         lightFolder.addColor(new ColorGUIHelper(light, 'color'), 'value').name('color');
         lightFolder.add(light, 'intensity', 0, 10, 0.01);
-       // lightFolder.open();
+        // lightFolder.open();
 
     }
 
@@ -2281,7 +914,7 @@ function main() {
         }
     };
     //monochromatic filter
-    skyboxController.applyMonochromaticFilter = function() {
+    skyboxController.applyMonochromaticFilter = function () {
         if (skySphereMesh && materialModeManager.isMonochromatic) {
             // Create a desaturated version of the skybox
             const monoSkyMaterial = new THREE.MeshBasicMaterial({
@@ -2355,17 +988,17 @@ function main() {
             baseURL + 'fairgrounds.glb',
             (glb) => {
                 try {
-                // Hide the loading popup
-                PopupManager.hideLoadingPopup();
-                
-                const root = glb.scene;
+                    // Hide the loading popup
+                    PopupManager.hideLoadingPopup();
+
+                    const root = glb.scene;
 
                     const updateTextureQuality = setupOptimizedTextureSystem(root, scene, camera);
                     window.updateTextureQuality = updateTextureQuality;
 
                     window.cullingLODManager.injectIntoGLTFScene(root, lodControls);
                     scene.add(root);
-                    
+
                     // Apply monochromatic mode after model loads if it's enabled
                     if (visualizationSettings.monochromaticMode) {
                         // Delay to ensure everything is initialized
@@ -2382,43 +1015,43 @@ function main() {
                             scene.fog.density = 0.003;
                         }, 100);
                     }
-                    
+
                     console.log(dumpObject(root).join('\n'));
                     setupBoundaries();
                     blocker.style.display = '';
                     instructions.style.display = '';
                     dracoLoader.dispose();
                 } catch (error) {
-                        console.error('Error processing loaded model:', error);
-                        // Update the loading popup to show error
-                        const progressDiv = document.querySelector('.loading-progress');
-                        if (progressDiv) {
-                            progressDiv.innerHTML = '<div style="color: #d32f2f;">Error loading model. Please refresh the page.</div>';
-                        }
-                        dracoLoader.dispose();
-                    }
-                },
-                (xhr) => {
-                    if (xhr.lengthComputable) {
-                        const percentComplete = Math.round((xhr.loaded / xhr.total) * 100);
-                        PopupManager.updateLoadingProgress(percentComplete);
-                        
-                        if (blocker.style.display === '' && instructions.style.display === '') {
-                            instructions.style.display = 'none';
-                            blocker.style.display = 'none';
-                        }
-                    }
-                },
-                (error) => {
-                    console.error('Error loading model:', error);
+                    console.error('Error processing loaded model:', error);
                     // Update the loading popup to show error
                     const progressDiv = document.querySelector('.loading-progress');
                     if (progressDiv) {
-                        progressDiv.innerHTML = '<div style="color: #d32f2f;">Error loading model. Please check your connection and refresh.</div>';
+                        progressDiv.innerHTML = '<div style="color: #d32f2f;">Error loading model. Please refresh the page.</div>';
                     }
                     dracoLoader.dispose();
                 }
-            );
+            },
+            (xhr) => {
+                if (xhr.lengthComputable) {
+                    const percentComplete = Math.round((xhr.loaded / xhr.total) * 100);
+                    PopupManager.updateLoadingProgress(percentComplete);
+
+                    if (blocker.style.display === '' && instructions.style.display === '') {
+                        instructions.style.display = 'none';
+                        blocker.style.display = 'none';
+                    }
+                }
+            },
+            (error) => {
+                console.error('Error loading model:', error);
+                // Update the loading popup to show error
+                const progressDiv = document.querySelector('.loading-progress');
+                if (progressDiv) {
+                    progressDiv.innerHTML = '<div style="color: #d32f2f;">Error loading model. Please check your connection and refresh.</div>';
+                }
+                dracoLoader.dispose();
+            }
+        );
     }
 
     function resizeRendererToDisplaySize(renderer) {
@@ -2478,8 +1111,8 @@ function main() {
 
                 velocity.x -= velocity.x * 10.0 * delta;
                 velocity.z -= velocity.z * 10.0 * delta;
-            
-            // Direct rotation handling - only rotates while key is held
+
+                // Direct rotation handling - only rotates while key is held
                 const rotationSpeed = 1.5; // Adjust this value to control rotation speed
 
                 if (isGUIMode) {
