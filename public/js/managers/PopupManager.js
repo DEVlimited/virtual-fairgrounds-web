@@ -24,118 +24,115 @@ export class PopupManager {
         this.tiffCache = new Map();
 
         this.audio = new Audio();
-
-        this.init();
     }
-    PopupManager = {
-        async init() {
-            try {
-                const response = await fetch('../public/js/imageManifest.json');
-                this.imageManifest = await response.json();
-                console.log('Image manifest loaded:', this.imageManifest);
-                console.log(`Version: ${this.imageManifest.version}, Updated: ${this.imageManifest.updated}`);
-            } catch (error) {
-                console.error('Could not load image manifest:', error);
-                this.imageManifest = { locations: [] };
-            }
-        },
+    async init() {
+        try {
+            const response = await fetch('../public/js/imageManifest.json');
+            this.imageManifest = await response.json();
+            console.log('Image manifest loaded:', this.imageManifest);
+            console.log(`Version: ${this.imageManifest.version}, Updated: ${this.imageManifest.updated}`);
+        } catch (error) {
+            console.error('Could not load image manifest:', error);
+            this.imageManifest = { locations: [] };
+        }
+    }
+    
+    getLocationData(locationId) {
+        if (this.imageManifest && this.imageManifest.locations) {
+            return this.imageManifest.locations.find(loc => loc.id === locationId);
+        }
+        return null;
+    }
+    
+    async convertTiffToCanvas(url) {
+        if (this.tiffCache.has(url)) {
+            return this.tiffCache.get(url);
+        }
+        
+        try {
+            const response = await fetch(url);
+            const arrayBuffer = await response.arrayBuffer();
+            
+            const ifds = UTIF.decode(arrayBuffer);
+            if (ifds.length === 0) throw new Error('No images found in TIFF');
+            
+            const ifd = ifds[0];
+            UTIF.decodeImage(arrayBuffer, ifd);
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = ifd.width;
+            canvas.height = ifd.height;
+            const ctx = canvas.getContext('2d');
+            
+            const rgba = UTIF.toRGBA8(ifd);
+            
+            const imageData = new ImageData(new Uint8ClampedArray(rgba.buffer), ifd.width, ifd.height);
+            ctx.putImageData(imageData, 0, 0);
+            
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            
+            this.tiffCache.set(url, dataUrl);
+            
+            return dataUrl;
+        } catch (error) {
+            console.error('Error converting TIFF:', error);
+            return '../public/images/placeholder.png';
+        }
+    }
+    
+    async processImageSource(imageData) {
+        if (imageData.type === 'tiff' || imageData.src.toLowerCase().endsWith('.tif') || imageData.src.toLowerCase().endsWith('.tiff')) {
+            return await this.convertTiffToCanvas(imageData.src);
+        }
+        return imageData.src;
+    }
+    
+    show(title = 'Popup', content = '') {
+        this.title.textContent = title;
+        this.content.innerHTML = content;
+        
+        this.overlay.style.display = 'block';
+        setTimeout(() => {
+            this.overlay.classList.add('show');
+            this.container.classList.add('show');
+        }, 10);
+        
+        document.body.style.overflow = 'hidden';
+        document.body.style.cursor = 'default';
+        
+        this.initializeCarousel();
+        this.initializeAudio();
+        
+        if (this.autoplayEnabled && this.currentImages.length > 1) {
+            this.startAutoplay();
+        }
+    }
+    
+    hide() {
+        this.overlay.classList.remove('show');
+        this.container.classList.remove('show');
+        
+        setTimeout(() => {
+            this.overlay.style.display = 'none';
+        }, 300);
+        
+        document.body.style.overflow = 'auto';
+        document.body.style.cursor = 'none';
+        
+        this.stopAutoplay();
 
-        getLocationData(locationId) {
-            if (this.imageManifest && this.imageManifest.locations) {
-                return this.imageManifest.locations.find(loc => loc.id === locationId);
-            }
-            return null;
-        },
-
-        async convertTiffToCanvas(url) {
-            if (this.tiffCache.has(url)) {
-                return this.tiffCache.get(url);
-            }
-
-            try {
-                const response = await fetch(url);
-                const arrayBuffer = await response.arrayBuffer();
-
-                const ifds = UTIF.decode(arrayBuffer);
-                if (ifds.length === 0) throw new Error('No images found in TIFF');
-
-                const ifd = ifds[0];
-                UTIF.decodeImage(arrayBuffer, ifd);
-
-                const canvas = document.createElement('canvas');
-                canvas.width = ifd.width;
-                canvas.height = ifd.height;
-                const ctx = canvas.getContext('2d');
-
-                const rgba = UTIF.toRGBA8(ifd);
-
-                const imageData = new ImageData(new Uint8ClampedArray(rgba.buffer), ifd.width, ifd.height);
-                ctx.putImageData(imageData, 0, 0);
-
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-
-                this.tiffCache.set(url, dataUrl);
-
-                return dataUrl;
-            } catch (error) {
-                console.error('Error converting TIFF:', error);
-                return '../public/images/placeholder.png';
-            }
-        },
-
-        async processImageSource(imageData) {
-            if (imageData.type === 'tiff' || imageData.src.toLowerCase().endsWith('.tif') || imageData.src.toLowerCase().endsWith('.tiff')) {
-                return await this.convertTiffToCanvas(imageData.src);
-            }
-            return imageData.src;
-        },
-
-        show: function (title = 'Popup', content = '') {
-            this.title.textContent = title;
-            this.content.innerHTML = content;
-
-            this.overlay.style.display = 'block';
-            setTimeout(() => {
-                this.overlay.classList.add('show');
-                this.container.classList.add('show');
-            }, 10);
-
-            document.body.style.overflow = 'hidden';
-            document.body.style.cursor = 'default';
-
-            this.initializeCarousel();
-            this.initializeAudio();
-
-            if (this.autoplayEnabled && this.currentImages.length > 1) {
-                this.startAutoplay();
-            }
-        },
-
-        hide: function () {
-            this.overlay.classList.remove('show');
-            this.container.classList.remove('show');
-
-            setTimeout(() => {
-                this.overlay.style.display = 'none';
-            }, 300);
-
-            document.body.style.overflow = 'auto';
-            document.body.style.cursor = 'none';
-
-            this.stopAutoplay();
-
-            if (this.audio) {
-                this.audio.pause();
-                this.audio.currentTime = 0;
-            }
-
-            this.currentImageIndex = 0;
-            this.currentImages = [];
-            this.currentLocation = null;
-            this.removeCarouselListeners();
-        },
-
-        initializeAudio: function () {
+        if (this.audio) {
+            this.audio.pause();
+            this.audio.currentTime = 0;
+        }
+        
+        this.currentImageIndex = 0;
+        this.currentImages = [];
+        this.currentLocation = null;
+        this.removeCarouselListeners();
+    }
+        
+    initializeAudio() {
 
             const locationData = this.getLocationData(this.currentLocation);
 
@@ -216,9 +213,9 @@ export class PopupManager {
                     pauseButton.style.display = 'none';
                 });
             }
-        },
+        }
 
-        generateAudioHTML: function (locationData) {
+        generateAudioHTML(locationData) {
             if (!locationData.audio) return '';
 
             return `
@@ -240,9 +237,9 @@ export class PopupManager {
                     </div>
                 </div>
             `;
-        },
+        }
 
-        initializeCarousel: function () {
+        initializeCarousel() {
             const carouselContainer = this.content.querySelector('.carousel-container');
             if (!carouselContainer) return;
 
@@ -280,7 +277,7 @@ export class PopupManager {
             this.loadTiffImages();
 
             this.showImage(0);
-        },
+        }
 
         async loadTiffImages() {
             if (!this.currentLocation || !window.UTIF) return;
@@ -307,9 +304,9 @@ export class PopupManager {
                     }
                 }
             }
-        },
+        }
 
-        setupThumbnails: function () {
+        setupThumbnails() {
             const carouselContainer = this.content.querySelector('.carousel-container');
             if (!carouselContainer) return;
 
@@ -322,9 +319,9 @@ export class PopupManager {
                     thumb.addEventListener('click', () => this.showImage(index));
                 });
             }
-        },
+        }
 
-        startAutoplay: function () {
+        startAutoplay() {
             if (!this.autoplayEnabled || this.currentImages.length <= 1) return;
 
             this.stopAutoplay();
@@ -342,9 +339,9 @@ export class PopupManager {
                     this.showImage(0);
                 }
             }, this.autoplayDuration);
-        },
+        }
 
-        stopAutoplay: function () {
+        stopAutoplay() {
             if (this.autoplayInterval) {
                 clearInterval(this.autoplayInterval);
                 this.autoplayInterval = null;
@@ -355,9 +352,9 @@ export class PopupManager {
                 progressBar.classList.remove('active');
                 progressBar.style.transitionDuration = '0ms';
             }
-        },
+        }
 
-        removeCarouselListeners: function () {
+        removeCarouselListeners() {
             if (this.keyboardHandler) {
                 document.removeEventListener('keydown', this.keyboardHandler);
                 this.keyboardHandler = null;
@@ -375,9 +372,9 @@ export class PopupManager {
                     nextBtn.removeEventListener('click', this.nextBtnHandler);
                 }
             }
-        },
+        }
 
-        showImage: function (index) {
+        showImage(index) {
             if (!this.currentImages.length) return;
 
             if (this.autoplayEnabled) {
@@ -420,19 +417,19 @@ export class PopupManager {
             if (nextBtn) nextBtn.disabled = index === this.currentImages.length - 1;
 
             this.currentImageIndex = index;
-        },
+        }
 
-        nextImage: function () {
+        nextImage() {
             if (this.currentImageIndex < this.currentImages.length - 1) {
                 this.showImage(this.currentImageIndex + 1);
             }
-        },
+        }
 
-        previousImage: function () {
+        previousImage() {
             if (this.currentImageIndex > 0) {
                 this.showImage(this.currentImageIndex - 1);
             }
-        },
+        }
 
         async generatePopupFromLocation(locationId) {
             const locationData = this.getLocationData(locationId);
@@ -682,7 +679,6 @@ export class PopupManager {
             this.hide();
         }
     };
-}
 
 export const popupManager = new PopupManager();
 

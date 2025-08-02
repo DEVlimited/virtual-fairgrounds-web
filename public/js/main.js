@@ -10,7 +10,7 @@ import { MinMaxGUIHelper, ColorGUIHelper, FogGUIHelper } from './utils/GUIHelper
 import { CAMERA_CONFIG, MOVEMENT, FOG_CONFIG, BOUNDARIES, MODEL_URL } from './config/constants.js';
 import { INTERACTION_ZONES } from './config/locations.js';
 import { setupCustomFogShaders, createShaderModifier } from './shaders/FogShaderSetup.js';
-import { popupManager as PopupManager } from './managers/PopUpManagers.js';
+import { popupManager as PopupManager } from './managers/PopupManager.js';
 
 function main() {
     setupCustomFogShaders();
