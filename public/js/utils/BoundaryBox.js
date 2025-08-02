@@ -14,39 +14,38 @@ export class BoundaryBox {
      * @param {number} minZ - Minimum Z coordinate
      * @param {number} maxZ - Maximum Z coordinate
      */
-     constructor(minX, maxX, minY, maxY, minZ, maxZ) {
-            this.min = new THREE.Vector3(minX, minY, minZ);
-            this.max = new THREE.Vector3(maxX, maxY, maxZ);
-    
-            this.center = new THREE.Vector3(
-                (minX + maxX) / 2,
-                (minY + maxY) / 2,
-                (minZ + maxZ) / 2
-            );
-    
-            this.rotationParams = {
-                x: 0,
-                y: (-2 * Math.PI) / 180,
-                z: 0,
-                xDegrees: 0,
-                yDegrees: -2,
-                zDegrees: 0
-            };
-    
-            this.visualizationMaterial = new THREE.MeshBasicMaterial({
-                color: 0x00ff00,
-                wireframe: true,
-                transparent: true,
-                opacity: 0.2
-            });
-    
-    
-            this.boundaryBox = null;
-    
-            this.worldToLocal = new THREE.Matrix4();
-            this.localToWorld = new THREE.Matrix4();
-            this.updateTransformationMatrices();
-        }
+    constructor(minX, maxX, minY, maxY, minZ, maxZ) {
+        this.min = new THREE.Vector3(minX, minY, minZ);
+        this.max = new THREE.Vector3(maxX, maxY, maxZ);
+
+        this.center = new THREE.Vector3(
+            (minX + maxX) / 2,
+            (minY + maxY) / 2,
+            (minZ + maxZ) / 2
+        );
+
+        this.rotationParams = {
+            x: 0,
+            y: (-2 * Math.PI) / 180,
+            z: 0,
+            xDegrees: 0,
+            yDegrees: -2,
+            zDegrees: 0
+        };
+
+        this.visualizationMaterial = new THREE.MeshBasicMaterial({
+            color: 0x00ff00,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.2
+        });
+
+        this.boundaryBox = null;
+
+        this.worldToLocal = new THREE.Matrix4();
+        this.localToWorld = new THREE.Matrix4();
+        this.updateTransformationMatrices();
+    }
     
         updateRotation() {
             this.boundaryBox.rotation.x = this.rotationParams.x;
@@ -175,76 +174,22 @@ export class BoundaryBox {
         // so I asked claude if there was a better way and who just spat this out and it works
         // really well
         // Apply constraints to the camera position
-        constrainCamera(camera, previousPosition = null) {
-            // Check if the current camera position is within bounds
-            if (!this.isInBounds(camera.position)) {
-                if (previousPosition && this.isInBounds(previousPosition)) {
-                    // If we have a previous valid position, revert to it
-                    camera.position.copy(previousPosition);
-                } else {
-                    // Otherwise, clamp to the nearest valid position
-                    const clampedPos = this.clampPosition(camera.position);
-                    camera.position.copy(clampedPos);
-                }
-                return true; // Bounds were enforced
+         constrainCamera(camera, previousPosition = null) {
+        // Check if the current camera position is within bounds
+        if (!this.isInBounds(camera.position)) {
+            if (previousPosition && this.isInBounds(previousPosition)) {
+                // If we have a previous valid position, revert to it
+                camera.position.copy(previousPosition);
+            } else {
+                // Otherwise, clamp to the nearest valid position
+                const clampedPos = this.clampPosition(camera.position);
+                camera.position.copy(clampedPos);
             }
-            return false; // No bounds enforcement was necessary
+            return true; // Bounds were enforced
         }
+        return false; // No bounds enforcement was necessary
     }
-    
-    // Same with this function, I originally had one like this but I couldnt quite figure out how to
-    // setup a way to check the position before actually moving the camera, and then claude spat this out
-    // and I didnt even think about changing the actual code of the libaray itself to make it do it for me
-    // SMH i need more coffee cause the answer was so simple yet I couldnt think about it
-    // Function to integrate with existing PointerLockControls
-    function setupCameraBoundaries(scene, camera, controls) {
-        // Create boundaries - adjust these values to match your scene
-        const boundary = new boundaryBox(-62, -35, 32, 32, -34, 84);
-    
-        // Uncomment to visualize for debugging
-        //boundary.createVisualization(scene);
-    
-        // Store the previous valid position
-        let lastValidPosition = camera.position.clone();
-    
-        // Original moveRight and moveForward functions
-        const originalMoveRight = controls.moveRight;
-        const originalMoveForward = controls.moveForward;
-        const originalMouseMove = controls.onMouseMove;
-    
-        // Override the movement functions to add boundary checks
-        controls.moveRight = function (distance) {
-            // Store the current position before movement
-            lastValidPosition.copy(camera.position);
-    
-            // Call the original function
-            originalMoveRight.call(this, distance);
-    
-            // Check if new position is valid
-            boundary.constrainCamera(camera, lastValidPosition);
-        };
-    
-        controls.moveForward = function (distance) {
-            // Store the current position before movement
-            lastValidPosition.copy(camera.position);
-    
-            // Call the original function
-            originalMoveForward.call(this, distance);
-    
-            // Check if new position is valid
-            boundary.constrainCamera(camera, lastValidPosition);
-        };
-    
-        controls.onMouseMove = function (event) {
-            if (middleMouseClicked) {
-                return;
-            }
-    
-            originalMouseMove.call(this, event);
-        }
-    
-        return boundary;
-    }
+}
 
 /**
  * Sets up camera boundaries with PointerLockControls integration
@@ -253,6 +198,50 @@ export class BoundaryBox {
  * @param {PointerLockControls} controls - The controls to modify
  * @returns {BoundaryBox} The configured boundary system
  */
-export function setupCameraBoundaries(scene, camera, controls) {
-    // [Move the setupCameraBoundaries function here]
+export function setupCameraBoundaries(scene, camera, controls, isGUIMode = false) {
+    // Create boundaries - adjust these values to match your scene
+    const boundary = new BoundaryBox(-62, -35, 32, 32, -34, 84);  // <- Fixed: uppercase B
+
+    // Uncomment to visualize for debugging
+    //boundary.createVisualization(scene);
+
+    // Store the previous valid position
+    let lastValidPosition = camera.position.clone();
+
+    // Original moveRight and moveForward functions
+    const originalMoveRight = controls.moveRight;
+    const originalMoveForward = controls.moveForward;
+    const originalMouseMove = controls.onMouseMove;
+
+    // Override the movement functions to add boundary checks
+    controls.moveRight = function (distance) {
+        // Store the current position before movement
+        lastValidPosition.copy(camera.position);
+
+        // Call the original function
+        originalMoveRight.call(this, distance);
+
+        // Check if new position is valid
+        boundary.constrainCamera(camera, lastValidPosition);
+    };
+
+    controls.moveForward = function (distance) {
+        // Store the current position before movement
+        lastValidPosition.copy(camera.position);
+
+        // Call the original function
+        originalMoveForward.call(this, distance);
+
+        // Check if new position is valid
+        boundary.constrainCamera(camera, lastValidPosition);
+    };
+
+    // Note: We'll handle the mouse move override differently
+    // The middleMouseClicked check should be handled in main.js
+    controls.onMouseMove = function (event) {
+        // This will be managed by the GUI mode handler
+        originalMouseMove.call(this, event);
+    }
+
+    return boundary;
 }

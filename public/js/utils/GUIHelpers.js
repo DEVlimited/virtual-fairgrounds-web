@@ -26,7 +26,7 @@ export class MinMaxGUIHelper {
 }
 
 // This is the color gui for the directional light
-class ColorGUIHelper {
+export class ColorGUIHelper {
     constructor(object, prop) {
         this.object = object;
         this.prop = prop;
@@ -40,7 +40,7 @@ class ColorGUIHelper {
 }
 
 // This is the gui for fog to control legit everything
-class FogGUIHelper {
+export class FogGUIHelper {
     constructor(fog, camera) {
         this.fog = fog;
         this.camera = camera;

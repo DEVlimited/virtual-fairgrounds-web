@@ -2082,7 +2082,7 @@ function main() {
     const southEndGUI = popCirclesGUI.addFolder('SouthEnd Circle');
 
     // Theater circle Intersection popup
-    const theaterSphere = new popUpCircle(-32, 31, 7, 8);
+    const theaterSphere = new PopupCircle(-32, 31, 7, 8);
     //theaterSphere.createSphereRadius(scene);
     theaterGUI.add(theaterSphere.position, 'x', -50, 50, 1).onChange((value) => {
         if (theaterSphere.circleObject) {
@@ -2095,7 +2095,7 @@ function main() {
         }
     });
     // Bills Cleaners
-    const cleanersSphere = new popUpCircle(-35, 31, 32, 4);
+    const cleanersSphere = new PopupCircle(-35, 31, 32, 4);
     //cleanersSphere.createSphereRadius(scene);
     cleanersGUI.add(cleanersSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
         if (cleanersSphere.circleObject) {
@@ -2108,7 +2108,7 @@ function main() {
         }
     });
     // Dominos place with THE FAN
-    const dominosSphere = new popUpCircle(-35.2, 31, 57.8, 3);
+    const dominosSphere = new PopupCircle(-35.2, 31, 57.8, 3);
     //dominosSphere.createSphereRadius(scene);
     dominosGUI.add(dominosSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
         if (dominosSphere.circleObject) {
@@ -2121,7 +2121,7 @@ function main() {
         }
     });
     // Records Shop, good music bruh
-    const recordsSphere = new popUpCircle(-36, 31, 63, 2);
+    const recordsSphere = new PopupCircle(-36, 31, 63, 2);
     //recordsSphere.createSphereRadius(scene);
     recordsGUI.add(recordsSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
         if (recordsSphere.circleObject) {
@@ -2134,7 +2134,7 @@ function main() {
         }
     });
     // North End
-    const northEndSphere = new popUpCircle(-50, 31, -28, 11);
+    const northEndSphere = new PopupCircle(-50, 31, -28, 11);
     //northEndSphere.createSphereRadius(scene);
     northEndGUI.add(northEndSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
         if (northEndSphere.circleObject) {
@@ -2147,7 +2147,7 @@ function main() {
         }
     });
     // South End
-    const southEndSphere = new popUpCircle(-52, 31, 86, 11);
+    const southEndSphere = new PopupCircle(-52, 31, 86, 11);
     //southEndSphere.createSphereRadius(scene);
     southEndGUI.add(southEndSphere.position, 'x', -80, 50, 0.1).onChange((value) => {
         if (southEndSphere.circleObject) {
