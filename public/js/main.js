@@ -18,6 +18,9 @@ import { INTERACTION_ZONES } from './config/locations.js';
 import { setupCustomFogShaders, createShaderModifier } from './shaders/FogShaderSetup.js';
 import { popupManager as PopupManager } from './managers/PopupManager.js';
 import { MaterialModeManager } from './managers/MaterialManager.js';
+import { GUIModeHandler } from './controls/GUIModeHandler.js';
+import { MovementController } from './controls/MovementController.js';
+import { InteractionController } from './controls/InteractionController.js';
 
 function main() {
     setupCustomFogShaders();
@@ -25,8 +28,6 @@ function main() {
     const canvas = document.querySelector('#c');
     const renderer = new THREE.WebGLRenderer({ antialias: true, canvas });
     const baseURL = 'https://storage.googleapis.com/fairgrounds-model/';
-
-    const guiModeHandler = new GUIModeHandler(controls, canvas);
 
     let skyBoxTextures;
 
@@ -324,6 +325,8 @@ function main() {
     controls.maxPolarAngle = (120 * Math.PI) / 180;
     controls.minPolarAngle = (60 * Math.PI) / 180;
 
+    const guiModeHandler = new GUIModeHandler(controls, canvas);
+
     // Starter instructions/fully locked
     instructions.addEventListener('click', function () {
         if (!guiModeHandler.getIsGUIMode() && !PopupManager.popUpActive) {
@@ -397,30 +400,6 @@ function main() {
             resetMovementState();
         }
     });
-
-    /*
-    const rotateTheCamera = function (event) {
-        if (guiModeHandler.getGuiFocused()) return;
-
-        switch (event.code) {
-            case guiModeHandler.getIsGUIMode() && 'KeyQ':
-                cameraEuler.setFromQuaternion(camera.quaternion);
-                cameraEuler.y -= -0.01 * 0.5 * 2;
-                camera.quaternion.setFromEuler(cameraEuler);
-                break;
-
-            case guiModeHandler.getIsGUIMode() && 'KeyE':
-                cameraEuler.setFromQuaternion(camera.quaternion);
-                cameraEuler.y -= 0.01 * 0.5 * 2;
-                camera.quaternion.setFromEuler(cameraEuler);
-                break;
-        }
-    }
-        */
-
-    document.addEventListener('keydown', onKeyDown);
-    document.addEventListener('keyup', onKeyUp);
-    //document.addEventListener('keydown', rotateTheCamera);
 
     document.addEventListener('mousedown', (event) => {
         if (event.button === 1) {
@@ -771,8 +750,6 @@ function main() {
     const fogGUIHelper = new FogGUIHelper(scene.fog, camera);
     fogFolder.add(fogGUIHelper, 'density', 0, 0.05, 0.0001);
     fogFolder.addColor(fogGUIHelper, 'color');
-    //fogFolder.open();
-    updateGUIVisibility();
 
     // GLTF Model loading with improved error handling
     {
