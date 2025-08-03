@@ -326,6 +326,7 @@ function main() {
     controls.minPolarAngle = (60 * Math.PI) / 180;
 
     const guiModeHandler = new GUIModeHandler(controls, canvas);
+    const movementController = new MovementController(camera, controls, guiModeHandler);
 
     // Starter instructions/fully locked
     instructions.addEventListener('click', function () {
@@ -422,8 +423,6 @@ function main() {
             }
         }
     });
-
-    const movementController = new MovementController(camera, controls);
 
     const cullingLODManager = setupOptimizedRendering(scene, camera, renderer);
 
@@ -868,6 +867,8 @@ function main() {
 
             const pointLockTime = performance.now();
 
+            const delta = (pointLockTime - prevTime) / 1000;
+
             if (controls.isLocked === true && !guiModeHandler.getIsGUIMode()) {
                 theaterSphere.checkForIntersection(camera);
                 cleanersSphere.checkForIntersection(camera);
@@ -886,9 +887,10 @@ function main() {
             }
 
             if (controls.isLocked === true || guiModeHandler.getIsGUIMode() && !PopupManager.popUpActive && !guiModeHandler.getGuiFocused()) {
+                const delta = (time - prevTime) / 1000;
                 movementController.update(delta, guiModeHandler.getIsGUIMode());
             } else {
-                movementController.reset(); // This calls the reset method to stop all movement
+                movementController.resetMovementState();
             }
 
             if (window.cullingLODManager) {

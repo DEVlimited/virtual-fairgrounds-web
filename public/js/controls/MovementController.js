@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import { MOVEMENT } from '../config/constants.js';
 
-/**
- * Handles player movement and rotation
+/*
+  Handles player movement and rotation
  */
 export class MovementController {
-    constructor(camera, controls) {
+    constructor(camera, controls, guiModeHandler) {
         this.camera = camera;
         this.controls = controls;
+        this.guiModeHandler = guiModeHandler;  // Add GUI mode handler reference
         
         // Movement state
         this.moveForward = false;
@@ -30,69 +31,68 @@ export class MovementController {
         document.addEventListener('keyup', (e) => this.onKeyUp(e));
     }
     
-    //This is the movement event function for the keys when they go up and down
     onKeyDown(event) {
-
-        if (guiFocused) return;
+        // Check if GUI is focused
+        if (this.guiModeHandler && this.guiModeHandler.getGuiFocused()) return;
 
         switch (event.code) {
             case 'ArrowUp':
             case 'KeyW':
-                moveForward = true;
+                this.moveForward = true;
                 break;
             case 'KeyA':
-                moveLeft = true;
+                this.moveLeft = true;
                 break;
             case 'ArrowDown':
             case 'KeyS':
-                moveBackward = true;
+                this.moveBackward = true;
                 break;
             case 'KeyD':
-                moveRight = true;
+                this.moveRight = true;
                 break;
             case 'KeyE':
             case 'ArrowRight':
-                if (isGUIMode) rotateLeft = true;
+                if (this.guiModeHandler && this.guiModeHandler.getIsGUIMode()) {
+                    this.rotateLeft = true;
+                }
                 break;
             case 'KeyQ':
             case 'ArrowLeft':
-                if (isGUIMode) rotateRight = true;
+                if (this.guiModeHandler && this.guiModeHandler.getIsGUIMode()) {
+                    this.rotateRight = true;
+                }
                 break;
             case 'KeyM':
-                if (!guiFocused && !PopupManager.popUpActive) {
-                    visualizationSettings.monochromaticMode = !visualizationSettings.monochromaticMode;
-                    visualizationSettings.toggleMonochromatic();
-                }
+                // Monochromatic mode toggle will be handled elsewhere
                 break;
         }
     }
 
     onKeyUp(event) {
-
         switch (event.code) {
             case 'ArrowUp':
             case 'KeyW':
-                moveForward = false;
+                this.moveForward = false;
                 break;
             case 'ArrowLeft':
             case 'KeyA':
-                moveLeft = false;
+                this.moveLeft = false;
                 break;
             case 'ArrowDown':
             case 'KeyS':
-                moveBackward = false;
+                this.moveBackward = false;
                 break;
             case 'ArrowRight':
             case 'KeyD':
-                moveRight = false;
+                this.moveRight = false;
                 break;
             case 'KeyE':
             case 'ArrowRight':
-                rotateLeft = false;  // Was: rotateRight = false
+                this.rotateLeft = false;
                 break;
             case 'KeyQ':
             case 'ArrowLeft':
-                rotateRight = false;  // Was: rotateLeft = false
+                this.rotateRight = false;
                 break;
         }
     }
@@ -137,15 +137,17 @@ export class MovementController {
         // Apply the velocity to the controls
         this.controls.moveRight(-this.velocity.x * delta);
         this.controls.moveForward(-this.velocity.z * delta);
-        }
+    }
     
     resetMovementState() {
-        moveForward = false;
-        moveBackward = false;
-        moveLeft = false;
-        moveRight = false;
-        velocity.set(0, 0, 0);
-        direction.set(0, 0, 0);
+        this.moveForward = false;
+        this.moveBackward = false;
+        this.moveLeft = false;
+        this.moveRight = false;
+        this.rotateLeft = false;
+        this.rotateRight = false;
+        this.velocity.set(0, 0, 0);
+        this.direction.set(0, 0, 0);
+        this.rotationVelocity = 0;
     }
-
 }
