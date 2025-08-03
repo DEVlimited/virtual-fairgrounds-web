@@ -378,12 +378,12 @@ function main() {
     document.addEventListener('focusout', (event) => {
         console.log('Unfocus target:', event.target);
 
-        if (isGUIElement(event.target)) {
+        if (guiModeHandler.isGUIElement(event.target)) {
             console.log('GUI element unfocused');
 
             setTimeout(() => {
                 if (!guiModeHandler.getGuiFocused()) {
-                    resetMovementState();
+                    movementController.reset();
                     console.log('Movement state reset after GUI unfocus');
                 }
             }, 50);
@@ -393,11 +393,11 @@ function main() {
     document.addEventListener('focusin', (event) => {
         console.log('Focus target:', event.target);
 
-        if (isGUIElement(event.target)) {
+        if (guiModeHandler.isGUIElement(event.target)) {
             console.log('GUI element focused - stopping movement');
 
             // Reset all movement
-            resetMovementState();
+            movementController.reset();
         }
     });
 
@@ -408,20 +408,22 @@ function main() {
             return;
         }
 
-        if (isGUIElement(event.target)) {
+        if (guiModeHandler.isGUIElement(event.target)) {
             console.log('GUI element clicked:', event.target);
-            resetMovementState();
+            movementController.reset();
         }
     });
 
     document.addEventListener('mousedown', (event) => {
-        if (event.target === canvas || !isGUIElement(event.target)) {
+        if (event.target === canvas || !guiModeHandler.isGUIElement(event.target)) {
             if (guiModeHandler.getGuiFocused()) {
                 console.log('Clicked outside GUI - clearing focus state');
-                resetMovementState();
+                movementController.reset();
             }
         }
     });
+
+    const movementController = new MovementController(camera, controls);
 
     const cullingLODManager = setupOptimizedRendering(scene, camera, renderer);
 
@@ -680,13 +682,13 @@ function main() {
         changeSkyBox: function (newTextureName) {
             if (skySphereMesh && skyBoxTextures[newTextureName]) {
                 controls.disconnect();
-                resetMovementState();
+                movementController.reset();
                 setTimeout(() => {
                     skySphereMesh.material.map = skyBoxTextures[newTextureName];
                     skySphereMesh.material.needsUpdate = true;
                 }, 100);
                 controls.connect(canvas);
-                resetMovementState();
+                movementController.reset();
                 controls.object.position.copy(camera.position);
                 console.log('Skybox changed to:', newTextureName);
             }
