@@ -26,6 +26,8 @@ function main() {
     const renderer = new THREE.WebGLRenderer({ antialias: true, canvas });
     const baseURL = 'https://storage.googleapis.com/fairgrounds-model/';
 
+    const guiModeHandler = new GUIModeHandler(controls, canvas);
+
     let skyBoxTextures;
 
     let moveForward = false;
@@ -35,9 +37,6 @@ function main() {
 
     let rotateLeft = false;
     let rotateRight = false;
-
-    let isGUIMode = false;
-    let guiFocused = false;
 
     let cameraEuler = new Euler(0, 0, 0, 'YXZ');
 
@@ -286,56 +285,6 @@ function main() {
         //carouselFolder.open();
     }
 
-    // Updated interact listener (place this INSIDE main() after all the sphere creations)
-    const interactListener = function (event) {
-        if (isGUIMode || instructionsActive) return;
-
-        switch (event.code) {
-            case 'KeyF':
-                console.log('Interacted!');
-                if (theaterSphere.cameraInside) {
-                    PopupManager.popUpActive = true;
-                    PopupManager.generatePopupFromLocation('theater');
-                    controls.unlock();
-                    event.preventDefault();
-                    break;
-                } else if (cleanersSphere.cameraInside) {
-                    PopupManager.popUpActive = true;
-                    PopupManager.generatePopupFromLocation('cleaners');
-                    controls.unlock();
-                    event.preventDefault();
-                    break;
-                } else if (dominosSphere.cameraInside) {
-                    PopupManager.popUpActive = true;
-                    PopupManager.generatePopupFromLocation('dominos');
-                    controls.unlock();
-                    event.preventDefault();
-                    break;
-                } else if (recordsSphere.cameraInside) {
-                    PopupManager.popUpActive = true;
-                    PopupManager.generatePopupFromLocation('records');
-                    controls.unlock();
-                    event.preventDefault();
-                    break;
-                } else if (northEndSphere.cameraInside) {
-                    PopupManager.popUpActive = true;
-                    PopupManager.generatePopupFromLocation('northEnd');
-                    controls.unlock();
-                    event.preventDefault();
-                    break;
-                } else if (southEndSphere.cameraInside) {
-                    PopupManager.popUpActive = true;
-                    PopupManager.generatePopupFromLocation('southEnd');
-                    controls.unlock();
-                    event.preventDefault();
-                    break;
-                }
-        }
-    };
-
-    // Add the event listener for interactions
-    document.addEventListener('keydown', interactListener);
-
     // Close popup function (if not already defined)
     function closePopup() {
         setTimeout(() => {
@@ -377,7 +326,7 @@ function main() {
 
     // Starter instructions/fully locked
     instructions.addEventListener('click', function () {
-        if (!isGUIMode && !PopupManager.popUpActive) {
+        if (!guiModeHandler.getIsGUIMode() && !PopupManager.popUpActive) {
             controls.lock();
             instructionsActive = false;
             instructions.style.display = 'none';
@@ -407,7 +356,7 @@ function main() {
     controls.addEventListener('unlock', function () {
         controls.unlock();
         console.log('Controls have been unlocked');
-        if (!isGUIMode && !PopupManager.popUpActive) {
+        if (!guiModeHandler.getIsGUIMode() && !PopupManager.popUpActive) {
             instructionsActive = true;
             instructions.style.display = '';
             blocker.style.display = '';
@@ -421,104 +370,16 @@ function main() {
         console.log('controls have been locked');
     })
     //Really can't remember. Maybe xDarthx Knows. Commenting the line below because itis flagging an error and I'm not sure it is necessary.
-    //scene.add(controls.object);
-
-
-    // This is to toggle the GUI mode so that you can use your mouse to mess with the GUI
-    function toggleGUIMode() {
-        isGUIMode = !isGUIMode;
-
-        if (isGUIMode && !instructionsActive && !PopupManager.popUpActive) {
-            if (controls.isLocked) {
-                controls.unlock();
-            }
-            console.log('GUI Mode: Activated - Mouse is now free for GUI interaction');
-            updateGUIVisibility();
-        } else if (!instructionsActive && !PopupManager.popUpActive) {
-            blurAllGUIElements();
-            controls.lock();
-            console.log('GUID Mode: Deactivated - Camera Controls active');
-            updateGUIVisibility();
-        }
-    }
-
-    function blurAllGUIElements() {
-        if (document.activeElement && document.activeElement !== document.body) {
-            document.activeElement.blur();
-        }
-
-        const guiInputs = document.querySelectorAll('.lil-gui input, .lil-gui select, .lil-gui button');
-        guiInputs.forEach(element => {
-            if (element === document.activeElement) {
-                element.blur();
-            }
-        });
-
-        canvas.focus();
-    }
-
-    function updateGUIVisibility() {
-        const guiElements = document.querySelectorAll('.lil-gui');
-        guiElements.forEach(element => {
-            if (isGUIMode) {
-                element.style.pointerEvents = 'auto';
-                element.style.opacity = '1';
-                document.getElementById('interactionBlocker').style.display = 'none';
-                document.getElementById('interactDesc').style.display = 'none';
-            } else {
-                element.style.pointerEvents = 'none';
-                element.style.opacity = '0.3';
-            }
-        });
-
-        document.body.style.cursor = isGUIMode ? 'default' : 'none';
-    }
-
-    function resetMovementState() {
-        moveForward = false;
-        moveBackward = false;
-        moveLeft = false;
-        moveRight = false;
-        velocity.set(0, 0, 0);
-        direction.set(0, 0, 0);
-    }
-
-    // Function to check if an element is a GUI element 
-    function isGUIElement(element) {
-        while (element && element !== document.body) {
-            if (element.matches('input[type="range"]') ||
-                element.classList.contains('slider') ||
-                element.classList.contains('range')) {
-                return false;
-            }
-            if (element.matches('.lil-gui, .lil-gui *, .dg, .dg *')) {
-                return true;
-            }
-            if (element.classList && (
-                element.classList.contains('lil-gui') ||
-                element.classList.contains('controller') ||
-                element.classList.contains('title') ||
-                element.classList.contains('folder') ||
-                element.classList.contains('dg') ||
-                element.classList.contains('property-name') ||
-                element.classList.contains('c')
-            )) {
-                return true;
-            }
-            element = element.parentElement;
-        }
-        return false;
-    }
+    //scene.add(controls.object)
 
     document.addEventListener('focusout', (event) => {
         console.log('Unfocus target:', event.target);
 
         if (isGUIElement(event.target)) {
             console.log('GUI element unfocused');
-            guiFocused = false;
 
             setTimeout(() => {
-                if (!guiFocused) {
+                if (!guiModeHandler.getGuiFocused()) {
                     resetMovementState();
                     console.log('Movement state reset after GUI unfocus');
                 }
@@ -531,62 +392,24 @@ function main() {
 
         if (isGUIElement(event.target)) {
             console.log('GUI element focused - stopping movement');
-            guiFocused = true;
 
             // Reset all movement
             resetMovementState();
         }
     });
 
-    //This is the movement event function for the keys when they go up and down
-    const onKeyDown = function (event) {
-
-        if (guiFocused) return;
-
-        switch (event.code) {
-            case 'ArrowUp':
-            case 'KeyW':
-                moveForward = true;
-                break;
-            case 'KeyA':
-                moveLeft = true;
-                break;
-            case 'ArrowDown':
-            case 'KeyS':
-                moveBackward = true;
-                break;
-            case 'KeyD':
-                moveRight = true;
-                break;
-            case 'KeyE':
-            case 'ArrowRight':
-                if (isGUIMode) rotateLeft = true;
-                break;
-            case 'KeyQ':
-            case 'ArrowLeft':
-                if (isGUIMode) rotateRight = true;
-                break;
-            case 'KeyM':
-                if (!guiFocused && !PopupManager.popUpActive) {
-                    visualizationSettings.monochromaticMode = !visualizationSettings.monochromaticMode;
-                    visualizationSettings.toggleMonochromatic();
-                }
-                break;
-        }
-    };
-
     /*
     const rotateTheCamera = function (event) {
-        if (guiFocused) return;
+        if (guiModeHandler.getGuiFocused()) return;
 
         switch (event.code) {
-            case isGUIMode && 'KeyQ':
+            case guiModeHandler.getIsGUIMode() && 'KeyQ':
                 cameraEuler.setFromQuaternion(camera.quaternion);
                 cameraEuler.y -= -0.01 * 0.5 * 2;
                 camera.quaternion.setFromEuler(cameraEuler);
                 break;
 
-            case isGUIMode && 'KeyE':
+            case guiModeHandler.getIsGUIMode() && 'KeyE':
                 cameraEuler.setFromQuaternion(camera.quaternion);
                 cameraEuler.y -= 0.01 * 0.5 * 2;
                 camera.quaternion.setFromEuler(cameraEuler);
@@ -594,35 +417,6 @@ function main() {
         }
     }
         */
-    const onKeyUp = function (event) {
-
-        switch (event.code) {
-            case 'ArrowUp':
-            case 'KeyW':
-                moveForward = false;
-                break;
-            case 'ArrowLeft':
-            case 'KeyA':
-                moveLeft = false;
-                break;
-            case 'ArrowDown':
-            case 'KeyS':
-                moveBackward = false;
-                break;
-            case 'ArrowRight':
-            case 'KeyD':
-                moveRight = false;
-                break;
-            case 'KeyE':
-            case 'ArrowRight':
-                rotateLeft = false;  // Was: rotateRight = false
-                break;
-            case 'KeyQ':
-            case 'ArrowLeft':
-                rotateRight = false;  // Was: rotateLeft = false
-                break;
-        }
-    };
 
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
@@ -631,22 +425,20 @@ function main() {
     document.addEventListener('mousedown', (event) => {
         if (event.button === 1) {
             event.preventDefault();
-            toggleGUIMode();
+            guiModeHandler.toggleGUIMode(instructionsActive, PopupManager.popUpActive);;
             return;
         }
 
         if (isGUIElement(event.target)) {
             console.log('GUI element clicked:', event.target);
-            guiFocused = true;
             resetMovementState();
         }
     });
 
     document.addEventListener('mousedown', (event) => {
         if (event.target === canvas || !isGUIElement(event.target)) {
-            if (guiFocused) {
+            if (guiModeHandler.getGuiFocused()) {
                 console.log('Clicked outside GUI - clearing focus state');
-                guiFocused = false;
                 resetMovementState();
             }
         }
@@ -1079,7 +871,7 @@ function main() {
 
     function render(time) {
         try {
-            if (!controls.isLocked && !isGUIMode) {
+            if (!controls.isLocked && !guiModeHandler.getIsGUIMode()) {
                 velocity.set(0, 0, 0);
                 direction.set(0, 0, 0);
                 requestAnimationFrame(render);
@@ -1097,7 +889,7 @@ function main() {
 
             const pointLockTime = performance.now();
 
-            if (controls.isLocked === true && !isGUIMode) {
+            if (controls.isLocked === true && !guiModeHandler.getIsGUIMode()) {
                 theaterSphere.checkForIntersection(camera);
                 cleanersSphere.checkForIntersection(camera);
                 dominosSphere.checkForIntersection(camera);
@@ -1114,40 +906,10 @@ function main() {
                 }
             }
 
-            if (controls.isLocked === true || isGUIMode && !PopupManager.popUpActive && !guiFocused) {
-                const delta = (time - prevTime) / 1000;
-
-                velocity.x -= velocity.x * 10.0 * delta;
-                velocity.z -= velocity.z * 10.0 * delta;
-
-                // Direct rotation handling - only rotates while key is held
-                const rotationSpeed = 1.5; // Adjust this value to control rotation speed
-
-                if (isGUIMode) {
-                    if (rotateLeft) {
-                        cameraEuler.setFromQuaternion(camera.quaternion);
-                        cameraEuler.y -= rotationSpeed * delta;
-                        camera.quaternion.setFromEuler(cameraEuler);
-                    }
-                    if (rotateRight) {
-                        cameraEuler.setFromQuaternion(camera.quaternion);
-                        cameraEuler.y += rotationSpeed * delta;
-                        camera.quaternion.setFromEuler(cameraEuler);
-                    }
-                }
-
-                direction.z = Number(moveForward) - Number(moveBackward);
-                direction.x = Number(moveRight) - Number(moveLeft);
-                direction.normalize();
-
-                if (moveForward || moveBackward) velocity.z -= direction.z * 100.0 * delta;
-                if (moveLeft || moveRight) velocity.x -= direction.x * 100.0 * delta;
-
-                controls.moveRight(-velocity.x * delta);
-                controls.moveForward(-velocity.z * delta);
+            if (controls.isLocked === true || guiModeHandler.getIsGUIMode() && !PopupManager.popUpActive && !guiModeHandler.getGuiFocused()) {
+                movementController.update(delta, guiModeHandler.getIsGUIMode());
             } else {
-                velocity.set(0, 0, 0);
-                direction.set(0, 0, 0);
+                movementController.reset(); // This calls the reset method to stop all movement
             }
 
             if (window.cullingLODManager) {
