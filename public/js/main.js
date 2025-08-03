@@ -1,4 +1,10 @@
 import * as THREE from 'three';
+import { 
+    AdvancedCullingLODManager, 
+    SafeTextureLODManager, 
+    setupOptimizedTextureSystem,
+    isFogCompatibleMaterial 
+} from './managers/LODManager.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
@@ -11,6 +17,7 @@ import { CAMERA_CONFIG, MOVEMENT, FOG_CONFIG, BOUNDARIES, MODEL_URL } from './co
 import { INTERACTION_ZONES } from './config/locations.js';
 import { setupCustomFogShaders, createShaderModifier } from './shaders/FogShaderSetup.js';
 import { popupManager as PopupManager } from './managers/PopupManager.js';
+import { MaterialModeManager } from './managers/MaterialManager.js';
 
 function main() {
     setupCustomFogShaders();

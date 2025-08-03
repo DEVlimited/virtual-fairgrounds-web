@@ -70,4 +70,10 @@ export class MaterialModeManager {
             }
         });
     }
+        // Method to set the shader modifier after creation
+    setShaderModifier(shaderModifier) {
+        if (this.monochromaticMaterial) {
+            this.monochromaticMaterial.onBeforeCompile = shaderModifier;
+        }
+    }
 }

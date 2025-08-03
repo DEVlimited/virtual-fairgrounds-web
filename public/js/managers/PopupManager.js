@@ -514,8 +514,9 @@ export class PopupManager {
             }
 
             this.show(locationData.title, content);
-        },
-        switchTab: function (tabName) {
+        }
+
+        switchTab(tabName) {
             this.currentTab = tabName;
 
             // Update tab buttons
@@ -529,9 +530,9 @@ export class PopupManager {
             contents.forEach(content => {
                 content.classList.toggle('active', content.dataset.tab === tabName);
             });
-        },
+        }
 
-        showLoadingPopup: function () {
+        showLoadingPopup() {
             this.loadingPopupActive = true;
 
             const loadingContent = `
@@ -650,10 +651,10 @@ export class PopupManager {
                 subtitle.textContent = 'Preserving Oklahoma City\'s Historic Fairgrounds Neighborhood';
                 header.appendChild(subtitle);
             }
-        },
+        }
 
         // Add this method to update loading progress
-        updateLoadingProgress: function (percentage) {
+        updateLoadingProgress(percentage) {
             const fillBar = document.getElementById('loading-bar-fill');
             const percentText = document.getElementById('loading-percentage');
 
@@ -663,10 +664,10 @@ export class PopupManager {
             if (percentText) {
                 percentText.textContent = percentage + '%';
             }
-        },
+        }
 
         // Add this method to hide loading popup
-        hideLoadingPopup: function () {
+        hideLoadingPopup() {
             this.loadingPopupActive = false;
             this.overlay.classList.remove('loading-popup');
 
