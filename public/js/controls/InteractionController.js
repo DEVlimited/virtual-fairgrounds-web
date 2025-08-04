@@ -15,47 +15,24 @@ export class InteractionController {
     }
     
     handleInteraction(event) {
-        if (event.code === 'KeyF') {
-            console.log('Interacted!');
-                if (theaterSphere.cameraInside) {
-                    PopupManager.popUpActive = true;
-                    PopupManager.generatePopupFromLocation('theater');
-                    controls.unlock();
+    if (event.code === 'KeyF') {
+        console.log('Interacted!');
+        
+        // Check each zone
+        for (const [key, zone] of Object.entries(this.zones)) {
+            if (zone.cameraInside) {
+                const config = INTERACTION_ZONES[key];
+                if (config && config.locationId) {
+                    this.popupManager.popUpActive = true;
+                    this.popupManager.generatePopupFromLocation(config.locationId);
+                    this.controls.unlock();
                     event.preventDefault();
                     return;
-                } else if (cleanersSphere.cameraInside) {
-                    PopupManager.popUpActive = true;
-                    PopupManager.generatePopupFromLocation('cleaners');
-                    controls.unlock();
-                    event.preventDefault();
-                    return;
-                } else if (dominosSphere.cameraInside) {
-                    PopupManager.popUpActive = true;
-                    PopupManager.generatePopupFromLocation('dominos');
-                    controls.unlock();
-                    event.preventDefault();
-                    return;
-                } else if (recordsSphere.cameraInside) {
-                    PopupManager.popUpActive = true;
-                    PopupManager.generatePopupFromLocation('records');
-                    controls.unlock();
-                    event.preventDefault();
-                    return;
-                } else if (northEndSphere.cameraInside) {
-                    PopupManager.popUpActive = true;
-                    PopupManager.generatePopupFromLocation('northEnd');
-                    controls.unlock();
-                    event.preventDefault();
-                    return;
-                } else if (southEndSphere.cameraInside) {
-                    PopupManager.popUpActive = true;
-                    PopupManager.generatePopupFromLocation('southEnd');
-                    controls.unlock();
-                    event.preventDefault();
-                    return;
-                }            
+                }
+            }
         }
     }
+}
     
     checkZones(camera) {
         // [Move zone checking logic here]

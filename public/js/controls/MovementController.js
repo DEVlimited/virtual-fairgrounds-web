@@ -63,7 +63,11 @@ export class MovementController {
                 }
                 break;
             case 'KeyM':
-                // Monochromatic mode toggle will be handled elsewhere
+                if (window.app && window.app.visualizationSettings) {
+                    window.app.visualizationSettings.monochromaticMode = 
+                        !window.app.visualizationSettings.monochromaticMode;
+                    window.app.visualizationSettings.toggleMonochromatic();
+                }
                 break;
         }
     }

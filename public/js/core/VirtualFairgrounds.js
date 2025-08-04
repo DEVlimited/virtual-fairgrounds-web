@@ -79,11 +79,11 @@ export class VirtualFairgrounds {
             // Setup managers
             this.setupManagers();
             
-            // Setup GUI
-            this.setupGUI();
-            
             // Setup interaction zones
             this.setupInteractionZones();
+
+            // Setup GUI
+            this.setupGUI();
             
             // Load assets
             await this.loadAssets();
@@ -654,13 +654,35 @@ setupPopupCirclesGUI() {
             this.controls
         );
         
-        // Add boundary GUI controls
+        //boundary GUI controls
         const boundaryFolder = this.gui.addFolder('Camera Boundaries');
         
         boundaryFolder.add(this.cameraBoundarySystem.min, 'x', -150, 0).name('Min X');
         boundaryFolder.add(this.cameraBoundarySystem.max, 'x', -100, 0).name('Max X');
         boundaryFolder.add(this.cameraBoundarySystem.min, 'z', -150, 0).name('Min Z');
         boundaryFolder.add(this.cameraBoundarySystem.max, 'z', 0, 150).name('Max Z');
+        
+        //rotation controls
+        boundaryFolder.add(this.cameraBoundarySystem.rotationParams, 'xDegrees', -180, 180, 1)
+            .name('X Rotation (°)')
+            .onChange((value) => {
+                this.cameraBoundarySystem.rotationParams.x = (value * Math.PI) / 180;
+                this.cameraBoundarySystem.updateRotation();
+            });
+        
+        boundaryFolder.add(this.cameraBoundarySystem.rotationParams, 'yDegrees', -180, 180, 1)
+            .name('Y Rotation (°)')
+            .onChange((value) => {
+                this.cameraBoundarySystem.rotationParams.y = (value * Math.PI) / 180;
+                this.cameraBoundarySystem.updateRotation();
+            });
+        
+        boundaryFolder.add(this.cameraBoundarySystem.rotationParams, 'zDegrees', -180, 180, 1)
+            .name('Z Rotation (°)')
+            .onChange((value) => {
+                this.cameraBoundarySystem.rotationParams.z = (value * Math.PI) / 180;
+                this.cameraBoundarySystem.updateRotation();
+            });
     }
     
     updateLightingForMode() {
