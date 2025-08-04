@@ -1,5 +1,7 @@
+import { INTERACTION_ZONES } from '../config/locations.js';
+
 /*
- * Handles F-key interactions with world objects
+  Handles F-key interactions with world objects
  */
 export class InteractionController {
     constructor(zones, popupManager, controls) {

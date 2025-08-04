@@ -197,10 +197,257 @@ quote → "caption": "Historical description and date" ← quote
 
 1. **Make a backup first** - Before editing, copy the entire contents of `imageManifest.json` to a text file on your computer
 2. **Add one image at a time** - It's easier to find mistakes this way
-3. **Use the browser's incognito/private mode** - This ensures you see the latest version
+3. **Use the browser's incognito/private mode** - This ensures you see the latest version. YOu can also disable the cache in your browser tools. Google it or ask an AI if you need assistance. 
 4. **Take screenshots** - If something goes wrong, screenshots help developers help you
 
-Remember: Everyone makes mistakes when learning! The development team is here to help.
+# Virtual Fairgrounds Architecture
+
+## Overview
+The Virtual Fairgrounds is a browser-based 3D experience that recreates Oklahoma City's historic Fairgrounds District. This document outlines the modular architecture implemented in the refactor.
+
+## Architecture Diagram
+```
+main.js (Entry Point)
+    └── VirtualFairgrounds (Core Application)
+        ├── SceneManager (3D Scene Setup)
+        ├── AssetLoader (Resource Management)
+        ├── MovementController (Player Movement)
+        ├── GUIModeHandler (GUI Interaction)
+        ├── InteractionController (World Interactions)
+        ├── PopupManager (Information Displays)
+        ├── MaterialModeManager (Visual Modes)
+        └── AdvancedCullingLODManager (Performance)
+```
+
+## Core Systems
+
+### VirtualFairgrounds (`/core/VirtualFairgrounds.js`)
+Main application orchestrator that initializes and coordinates all subsystems.
+- Manages initialization flow
+- Handles render loop
+- Coordinates between subsystems
+- Manages application lifecycle
+
+### SceneManager (`/core/SceneManager.js`)
+Handles Three.js scene setup and configuration.
+- Scene creation and configuration
+- Lighting setup (hemisphere & directional)
+- Fog configuration
+- Skybox management
+
+### AssetLoader (`/core/AssetLoader.js`)
+Manages loading of 3D models and textures.
+- GLTF/GLB model loading with Draco compression
+- Skybox texture loading
+- Progress tracking
+- Error handling
+
+## Control Systems
+
+### MovementController (`/controls/MovementController.js`)
+Handles player movement and camera rotation.
+- WASD/Arrow key movement
+- Mouse look (via PointerLockControls)
+- Q/E rotation in GUI mode
+- Velocity-based movement physics
+
+### GUIModeHandler (`/controls/GUIModeHandler.js`)
+Manages GUI interaction mode toggling.
+- Middle mouse button toggles GUI mode
+- Handles focus management
+- Controls pointer lock state
+- Updates GUI visibility
+
+### InteractionController (`/controls/InteractionController.js`)
+Manages F-key interactions with world objects.
+- Zone-based interaction detection
+- Popup triggering
+- Interaction UI updates
+
+## Manager Systems
+
+### PopupManager (`/managers/PopupManager.js`)
+Handles information popups and image carousels.
+- Location-based content display
+- Image carousel with TIFF support
+- Audio playback
+- Loading screens
+- Tab navigation
+
+### MaterialModeManager (`/managers/MaterialManager.js`)
+Manages visual modes like monochromatic rendering.
+- Material storage and restoration
+- Monochromatic mode toggle
+- Shader integration
+- LOD material updates
+
+### LODManager (`/managers/LODManager.js`)
+Optimization system for performance.
+- Frustum culling
+- Level-of-detail (LOD) management
+- Texture quality optimization
+- Distance-based rendering
+
+## Utility Systems
+
+### BoundaryBox (`/utils/BoundaryBox.js`)
+Spatial boundaries for camera movement.
+- Rotatable boundary volumes
+- Camera constraint enforcement
+- Debug visualization
+- Matrix transformations
+
+### PopupCircle (`/utils/PopupCircle.js`)
+Interactive zones that trigger popups.
+- Spherical interaction volumes
+- Camera intersection detection
+- Debug visualization
+
+### GUIHelpers (`/utils/GUIHelpers.js`)
+Helper classes for GUI controls.
+- MinMaxGUIHelper (camera near/far)
+- ColorGUIHelper (light colors)
+- FogGUIHelper (fog parameters)
+
+## Shader Systems
+
+### FogShaderSetup (`/shaders/FogShaderSetup.js`)
+Custom fog implementation with noise.
+- Simplex noise integration
+- Performance-optimized fog
+- Time-based animation
+
+### NoiseShader (`/shaders/NoiseShader.js`)
+GLSL noise functions for atmospheric effects.
+
+## Configuration
+
+### Constants (`/config/constants.js`)
+Centralized configuration values.
+```javascript
+- CAMERA_CONFIG (FOV, near/far, initial position)
+- MOVEMENT (speed, deceleration, rotation)
+- FOG_CONFIG (color, density)
+- BOUNDARIES (spatial limits)
+- MODEL_URL (asset locations)
+```
+
+### Locations (`/config/locations.js`)
+Interactive zone definitions.
+```javascript
+- Position and radius for each zone
+- Location IDs for content mapping
+- Theater, cleaners, dominos, records, etc.
+```
+
+## Data Flow
+
+### Initialization Flow
+1. `main.js` creates `VirtualFairgrounds` instance
+2. Custom fog shaders are initialized
+3. PopupManager loads manifest data
+4. Renderer, scene, camera are created
+5. Control systems are initialized
+6. Interaction zones are created
+7. GUI is built
+8. Assets are loaded
+9. Boundaries are established
+10. Render loop begins
+
+### Render Loop
+1. Calculate delta time
+2. Update fog animation
+3. Check player interactions
+4. Update movement if active
+5. Update LOD system
+6. Update texture quality
+7. Render scene
+
+### Interaction Flow
+1. Player enters interaction zone
+2. InteractionController detects proximity
+3. UI prompt appears
+4. Player presses F key
+5. PopupManager displays location content
+6. Controls unlock for popup interaction
+
+## Key Features
+
+### Performance Optimizations
+- Frustum culling (objects outside view are skipped)
+- LOD system (distant objects use simpler models)
+- Texture quality scaling (based on distance)
+- Conditional fog calculations
+
+### Visual Modes
+- Full color mode (default textures)
+- Monochromatic mode (architectural focus)
+- Adjustable brightness
+- Custom skybox support
+
+### User Controls
+- First-person navigation
+- GUI mode for settings adjustment
+- Keyboard shortcuts (M for monochrome)
+- Mouse-based camera control
+
+## Adding New Features
+
+### Adding a New Location
+1. Add zone definition to `/config/locations.js`
+2. Add content to `/public/js/imageManifest.json`
+3. Zone will automatically be interactive
+
+### Adding a New Visual Mode
+1. Extend `MaterialModeManager`
+2. Add GUI controls in `VirtualFairgrounds.setupVisualizationGUI()`
+3. Implement material swapping logic
+
+### Adding a New Control Scheme
+1. Extend `MovementController`
+2. Add input handling
+3. Update GUI mode handler if needed
+
+## Dependencies
+- Three.js (3D rendering)
+- PointerLockControls (first-person controls)
+- lil-gui (settings interface)
+- GLTFLoader (3D model loading)
+- DRACOLoader (model compression)
+
+## Development Guidelines
+
+### Code Style
+- ES6 modules with explicit imports/exports
+- Class-based architecture
+- JSDoc comments for public methods
+- Descriptive variable names
+
+### Best Practices
+- Single responsibility per module
+- Dependency injection over globals
+- Event-driven communication
+- Proper resource disposal
+
+### Testing Approach
+- Module isolation enables unit testing
+- Mock Three.js objects for logic tests
+- Integration tests for subsystem interaction
+- Performance profiling for optimizations
+
+## Troubleshooting
+
+### Common Issues
+1. **Popup not working**: Check INTERACTION_ZONES import
+2. **Movement stuck**: Verify GUI mode state
+3. **Performance issues**: Adjust LOD distances
+4. **Textures not loading**: Check asset paths
+
+### Debug Tools
+- `window.app` - Access main application instance
+- GUI panels - Real-time parameter adjustment
+- Boundary visualization - Toggle in Debug panel
+- Console logging - Detailed error messages
 
 ## Classes integrated
 This repo has been used in various classes at [Oklahoma City University](www.okcu.edu) to teach students real world software concepts while putting work into the great community project sponsored by the [Metropolitan Library System](https://www.metrolibrary.org/).
