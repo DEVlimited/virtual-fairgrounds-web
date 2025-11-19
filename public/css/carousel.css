@@ -306,18 +306,45 @@
     }
 }
 
-/* Slide transition support */
+/* Slide transition support - Enhanced with proper directional sliding */
 .carousel-container.slide-transition .carousel-image {
-    transition: transform 0.4s ease-in-out, opacity 0.4s ease-in-out;
+    transition: transform 0.5s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.5s ease;
+    opacity: 1; /* Keep opacity constant during slides */
+}
+
+/* Default: images start off to the right */
+.carousel-container.slide-transition .carousel-image {
     transform: translateX(100%);
 }
 
+/* Active image is centered */
 .carousel-container.slide-transition .carousel-image.active {
     transform: translateX(0);
+    z-index: 2;
 }
 
-.carousel-container.slide-transition .carousel-image.prev {
+/* Previous image slides out to the left */
+.carousel-container.slide-transition .carousel-image.slide-out-left {
     transform: translateX(-100%);
+    z-index: 1;
+}
+
+/* Next image slides in from the right */
+.carousel-container.slide-transition .carousel-image.slide-in-right {
+    transform: translateX(100%);
+    z-index: 1;
+}
+
+/* For backward navigation: previous image slides in from left */
+.carousel-container.slide-transition .carousel-image.slide-in-left {
+    transform: translateX(-100%);
+    z-index: 1;
+}
+
+/* For backward navigation: current slides out to the right */
+.carousel-container.slide-transition .carousel-image.slide-out-right {
+    transform: translateX(100%);
+    z-index: 1;
 }
 
 /* Print styles */

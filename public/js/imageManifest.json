@@ -19,33 +19,14 @@
           "caption": "Interior view of the East Side Theater showing the main auditorium"
         },
         {
-          "src": "../public/images/eastside/BlackDis1.png",
-          "alt": "Theater marquee",
-          "caption": "The iconic marquee advertising current shows"
-        },
-        {
           "src": "../public/images/eastside/BlackDis2.jpg",
           "alt": "Aerial view of the neighborhood",
-          "caption": "Aerial photograph showing the density of the Fairgrounds neighborhood",
-          "type": "jpg"
-        },
-        {
-          "src": "../public/images/eastside/BlackDis3.jpg",
-          "alt": "Theater interior with patrons",
-          "caption": "Patrons enjoying a show at the East Side Theater",
-          "type": "jpg"
+          "caption": "Aerial photograph showing the density of the Fairgrounds neighborhood"
         },
         {
           "src": "../public/images/eastside/BlackDis4.jpg",
           "alt": "Theater lobby",
-          "caption": "The lobby area of the East Side Theater, bustling with activity",
-          "type": "jpg"
-        },
-        {
-          "src": "../public/images/eastside/BlackDis5.jpg",
-          "alt": "Theater ticket booth",
-          "caption": "The ticket booth of the East Side Theater, a hub of excitement",
-          "type": "jpg"
+          "caption": "The lobby area of the East Side Theater, bustling with activity"
         }
       ],
       "audio": [
@@ -77,35 +58,24 @@
           "caption": "Advertisement from the Black Dispatch, May 1, 1954"
         },
         {
-          "src": "../public/images/718/718 interior 2.jpg",
+          "src": "../public/images/718/718 Interior 2.jpg",
           "alt": "Bill's Cleaners storefront",
           "caption": "The storefront of Bill's Cleaners on a busy Saturday"
         },
         {
-          "src": "../public/images/718/718 interior 3.jpg",
+          "src": "../public/images/718/718 Interior 3.jpg",
           "alt": "Bowling scores",
           "caption": "Bill's bowling scores published in the Black Dispatch"
         },
         {
-          "src": "../public/images/718/718 interior 4.jpg",
+          "src": "../public/images/718/718 Interior 4.jpg",
           "alt": "Interior workspace",
-          "caption": "The back workroom at Bill's Cleaners",
-          "type": "tiff"
-        },
-        {
-          "src": "../public/images/718/BlackDis0.PNG",
-          "alt": "Bill's Cleaners staff",
-          "caption": "Bill and his staff at work, circa 1950s"
+          "caption": "The back workroom at Bill's Cleaners"
         },
         {
           "src": "../public/images/718/BlackDis1.jpg",
           "alt": "Bill's Cleaners storefront",
           "caption": "Another view of the Bill's Cleaners storefront, bustling with customers"
-        },
-        {
-          "src": "../public/images/718/BlackDis2.PNG",
-          "alt": "Bill's Cleaners interior",
-          "caption": "Interior view of Bill's Cleaners showing the equipment and staff at work"
         }
       ],
       "audio": [
@@ -131,14 +101,22 @@
           "type": "tiff"
         },
         {
-          "src": "../public/images/714/714_interior_2.jpg",
+          "src": "../public/images/714/714 Interior 2.tif",
           "alt": "Domino Parlor Interior - Tables",
-          "caption": "Close-up of the domino tables and seating arrangements"
+          "caption": "Close-up of the domino tables and seating arrangements",
+          "type": "tiff"
         },
         {
-          "src": "../public/images/714/714_patrons.png",
+          "src": "../public/images/714/714 Interior 3.tif",
+          "alt": "Domino Parlor Interior - Another View",
+          "caption": "Additional view of the domino parlor interior",
+          "type": "tiff"
+        },
+        {
+          "src": "../public/images/714/714 Interior 4.tif",
           "alt": "Parlor patrons",
-          "caption": "Regular patrons enjoying an afternoon game"
+          "caption": "Regular patrons enjoying an afternoon game",
+          "type": "tiff"
         }
       ],
       "audio": [
@@ -196,13 +174,67 @@
     },
     {
       "id": "northEnd",
-      "title": "Welcome to the Fairgrounds",
-      "description": "Welcome to the Fairgrounds neighborhood circa 1955. You can learn more here at the East Side Theater by approaching the ticket booth under the awning."
+      "title": "Welcome to the Fairgrounds - North District",
+      "description": "Welcome to the northern section of the Fairgrounds neighborhood circa 1955.",
+      "html": "<p><strong>The Fairgrounds neighborhood, also known as Deep Deuce, was a thriving African American community in Oklahoma City.</strong></p><p>This area was home to businesses, residences, and cultural institutions that served the community during the era of segregation.</p>",
+      "images": [
+        {
+          "src": "../public/images/carousel/aerialNorth.jpg",
+          "alt": "Aerial view of the northern Fairgrounds district",
+          "caption": "Aerial photograph showing the northern section of the Fairgrounds neighborhood"
+        },
+        {
+          "src": "../public/images/carousel/13S5 (University Medical Center).jpg",
+          "alt": "University Medical Center",
+          "caption": "The University Medical Center served the community's healthcare needs"
+        }
+      ],
+      "audio": [
+        {
+          "src": "../public/audio/AvisMelvaFranklin-edited.mp3",
+          "type": "audio/mpeg",
+          "title": "Community Memories",
+          "speaker": "Avis Melva Franklin"
+        },
+        {
+          "src": "../public/audio/HobertSutton-edited.mp3",
+          "type": "audio/mpeg",
+          "title": "Life in the Fairgrounds",
+          "speaker": "Hobert Sutton"
+        }
+      ]
     },
     {
       "id": "southEnd",
-      "title": "Welcome to the Fairgrounds",
-      "description": "Welcome to the Fairgrounds neighborhood circa 1955. You can learn more here at the East Side Theater by approaching the ticket booth under the awning."
+      "title": "Welcome to the Fairgrounds - South District",
+      "description": "Welcome to the southern section of the Fairgrounds neighborhood circa 1955.",
+      "html": "<p><strong>The southern portion of the Fairgrounds was bustling with commercial activity and community life.</strong></p><p>Explore the neighborhood to discover the businesses and gathering places that made this community vibrant.</p>",
+      "images": [
+        {
+          "src": "../public/images/carousel/aerialSouth.jpg",
+          "alt": "Aerial view of the southern Fairgrounds district",
+          "caption": "Aerial photograph showing the southern section of the Fairgrounds neighborhood"
+        },
+        {
+          "src": "../public/images/carousel/67S1 (2305).jpg",
+          "alt": "Residential area",
+          "caption": "Residential buildings in the Fairgrounds neighborhood"
+        }
+      ],
+      "audio": [
+        {
+          "src": "../public/audio/EloiseCarbajal-edited1.mp3",
+          "type": "audio/mpeg",
+          "title": "Growing Up in the Fairgrounds",
+          "speaker": "Eloise Carbajal"
+        },
+        {
+          "src": "../public/audio/JWSanford1-edited2.mp3",
+          "type": "audio/mpeg",
+          "title": "Business in the Fairgrounds",
+          "speaker": "J.W. Sanford"
+        }
+      ]
     }
   ]
 }

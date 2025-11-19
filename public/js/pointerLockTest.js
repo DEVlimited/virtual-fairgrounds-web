@@ -696,7 +696,7 @@ class FogGUIHelper {
 
 //The object for the popUp mainly its detection circle
 class popUpCircle {
-    constructor(posX, posY, posZ, radius) {
+    constructor(posX, posY, posZ, radius, useRaycast = false) {
 
         this.cameraInside = false;
 
@@ -705,6 +705,12 @@ class popUpCircle {
         this.geometryRadius = radius;
 
         this.circleObject = null;
+
+        // Raycast settings for directional detection
+        this.useRaycast = useRaycast;
+        this.raycaster = useRaycast ? new THREE.Raycaster() : null;
+        this.targetMesh = null; // Can be set to a specific mesh to detect
+        this.raycastAngleThreshold = 45; // degrees - how directly must player face the target
     }
 
     createSphereRadius(scene) {
@@ -757,6 +763,50 @@ class popUpCircle {
         this.cameraInside = false;
     }
 }
+
+    // Enhanced raycast-based directional detection
+    checkWithRaycast(camera) {
+        if (!this.useRaycast || !this.raycaster) {
+            // Fall back to regular distance check
+            this.checkForIntersection(camera);
+            return;
+        }
+
+        const cameraPosition = new THREE.Vector3();
+        camera.getWorldPosition(cameraPosition);
+
+        // First check distance (must be within range)
+        const distance = cameraPosition.distanceTo(this.position);
+        if (distance >= this.geometryRadius) {
+            this.cameraInside = false;
+            return;
+        }
+
+        // Within range - now check if looking at target
+        const directionToTarget = new THREE.Vector3()
+            .subVectors(this.position, cameraPosition)
+            .normalize();
+
+        // Get camera's forward direction
+        const cameraDirection = new THREE.Vector3();
+        camera.getWorldDirection(cameraDirection);
+
+        // Calculate angle between camera direction and target direction
+        const angle = cameraDirection.angleTo(directionToTarget);
+        const angleDegrees = THREE.MathUtils.radToDeg(angle);
+
+        // Check if looking towards target within threshold
+        if (angleDegrees <= this.raycastAngleThreshold) {
+            this.cameraInside = true;
+        } else {
+            this.cameraInside = false;
+        }
+    }
+
+    // Set a specific mesh to raycast against (optional, more precise)
+    setTargetMesh(mesh) {
+        this.targetMesh = mesh;
+    }
 }
 
 //This is the barrier box object
@@ -1239,6 +1289,20 @@ function main() {
 
             this.audio.src = locationData.audio[0].src;
 
+            // Add error handler for audio loading failures
+            this.audio.onerror = () => {
+                console.error('Failed to load audio file:', this.audio.src);
+                console.warn('Audio file may be missing or corrupted');
+                const audioInfo = audioContainer.querySelector('.audio-info .audio-title');
+                if (audioInfo) {
+                    audioInfo.textContent += ' (Audio unavailable)';
+                    audioInfo.style.color = '#999';
+                }
+                // Disable audio controls
+                const playBtn = audioContainer.querySelector('.audio-controls.play');
+                if (playBtn) playBtn.disabled = true;
+            };
+
             const playButton = audioContainer.querySelector('.audio-controls.play');
             const pauseButton = audioContainer.querySelector('.audio-controls.pause');
 
@@ -1553,13 +1617,14 @@ function main() {
                     
                     const isTiff = img.type === 'tiff' || img.src.toLowerCase().match(/\.tiff?$/);
                     const initialSrc = isTiff ? '../public/images/placeholder.png' : img.src;
-                    
-                    content += `<img class="carousel-image ${isActive}" 
-                        src="${initialSrc}" 
+
+                    content += `<img class="carousel-image ${isActive}"
+                        src="${initialSrc}"
                         alt="${img.alt || ''}"
                         data-caption="${img.caption || ''}"
                         data-index="${i}"
-                        onerror="this.src='../public/images/placeholder.png'"
+                        data-original-src="${img.src}"
+                        onerror="console.warn('Failed to load image:', this.dataset.originalSrc); this.src='../public/images/placeholder.png'; this.alt='Image unavailable: ' + (this.dataset.originalSrc || 'unknown');"
                         onload="this.parentElement.parentElement.querySelector('.carousel-loading').style.display='none'">`;
                 }
                 
@@ -2387,8 +2452,49 @@ function main() {
     const lodControls = {
         lodDistances: { high: 40, medium: 100, low: 150, cull: 200 },
         enableCulling: true,
-        enableLOD: true
+        enableLOD: true,
+        applyToAll: function() {
+            // Apply current settings to all registered objects
+            if (window.cullingLODManager) {
+                for (const [id, lodData] of window.cullingLODManager.objectCache) {
+                    lodData.lodDistances = { ...lodControls.lodDistances };
+                    lodData.allowCulling = lodControls.enableCulling;
+                }
+                console.log('LOD settings applied to all objects');
+            }
+        }
     };
+
+    // Add GUI controls for LOD system
+    const lodFolder = optimizationFolder.addFolder('LOD Distances');
+    lodFolder.add(lodControls.lodDistances, 'high', 10, 100, 5).name('High Detail').onChange(() => {
+        lodControls.applyToAll();
+    });
+    lodFolder.add(lodControls.lodDistances, 'medium', 50, 200, 10).name('Medium Detail').onChange(() => {
+        lodControls.applyToAll();
+    });
+    lodFolder.add(lodControls.lodDistances, 'low', 100, 400, 20).name('Low Detail').onChange(() => {
+        lodControls.applyToAll();
+    });
+    lodFolder.add(lodControls.lodDistances, 'cull', 200, 800, 50).name('Cull Distance').onChange(() => {
+        lodControls.applyToAll();
+    });
+
+    optimizationFolder.add(lodControls, 'enableCulling').name('Enable Frustum Culling').onChange(() => {
+        lodControls.applyToAll();
+    });
+    optimizationFolder.add(lodControls, 'enableLOD').name('Enable LOD System').onChange((value) => {
+        if (window.cullingLODManager && !value) {
+            // If disabling, show all objects at high quality
+            for (const [id, lodData] of window.cullingLODManager.objectCache) {
+                lodData.group.visible = true;
+                lodData.meshes.high.visible = true;
+                lodData.meshes.medium.visible = false;
+                lodData.meshes.low.visible = false;
+            }
+        }
+    });
+    optimizationFolder.add(lodControls, 'applyToAll').name('Apply Settings');
 
     // Scene graph dump function
     function dumpObject(obj, lines = [], isLast = true, prefix = '') {
@@ -2441,6 +2547,30 @@ function main() {
 
     // Intersection pop Circles!
     const popCirclesGUI = gui.addFolder('Popup Circles');
+
+    // Global raycast settings
+    const raycastSettings = {
+        useRaycast: false,
+        angleThreshold: 45
+    };
+
+    popCirclesGUI.add(raycastSettings, 'useRaycast').name('Directional Detection').onChange((value) => {
+        // Update all circles
+        [theaterSphere, cleanersSphere, dominosSphere, recordsSphere, northEndSphere, southEndSphere].forEach(sphere => {
+            sphere.useRaycast = value;
+            if (value && !sphere.raycaster) {
+                sphere.raycaster = new THREE.Raycaster();
+            }
+        });
+        console.log('Raycast mode:', value ? 'enabled' : 'disabled');
+    });
+
+    popCirclesGUI.add(raycastSettings, 'angleThreshold', 15, 90, 5).name('Detection Angle').onChange((value) => {
+        [theaterSphere, cleanersSphere, dominosSphere, recordsSphere, northEndSphere, southEndSphere].forEach(sphere => {
+            sphere.raycastAngleThreshold = value;
+        });
+    });
+
     const theaterGUI = popCirclesGUI.addFolder('Theater Circle');
     const cleanersGUI = popCirclesGUI.addFolder('Bills Circle');
     const dominosGUI = popCirclesGUI.addFolder('Dominos Circle');
@@ -2824,12 +2954,13 @@ function main() {
             const pointLockTime = performance.now();
 
             if (controls.isLocked === true && !isGUIMode) {
-                theaterSphere.checkForIntersection(camera);
-                cleanersSphere.checkForIntersection(camera);
-                dominosSphere.checkForIntersection(camera);
-                recordsSphere.checkForIntersection(camera);
-                northEndSphere.checkForIntersection(camera);
-                southEndSphere.checkForIntersection(camera);
+                // Use raycast-aware detection (automatically falls back to distance-only if raycast disabled)
+                theaterSphere.checkWithRaycast(camera);
+                cleanersSphere.checkWithRaycast(camera);
+                dominosSphere.checkWithRaycast(camera);
+                recordsSphere.checkWithRaycast(camera);
+                northEndSphere.checkWithRaycast(camera);
+                southEndSphere.checkWithRaycast(camera);
                 let theCameraInside = (theaterSphere.cameraInside || cleanersSphere.cameraInside || dominosSphere.cameraInside || recordsSphere.cameraInside || northEndSphere.cameraInside || southEndSphere.cameraInside) ? true : false;
                 if (theCameraInside) {
                     document.getElementById('interactionBlocker').style.display = 'block';
